@@ -32,8 +32,17 @@ Notes:
 - **Python 3.12** is recommended: RocketPy's dependency `simplekml` may fail to build on 3.13.
 - **TurboFlow** is a separate `turboflow` extra, not part of `all`: it pins `numpy<2`, which
   conflicts with NASA `cea` (`numpy>=2`). Install it in its own environment if you need it.
-- **openMotor** is GPL-3.0 and not on PyPI, so it is never installed automatically.
-  Clone github.com/reilleya/openMotor and put it on `PYTHONPATH` (see `docs/licensing.md`).
+- **openMotor** is GPL-3.0 and not on PyPI, so it is never installed automatically
+  (see `docs/licensing.md`). Clone it next to this repo, build its one Cython module
+  (needs a C compiler, e.g. MSVC Build Tools) and point the venv at it:
+  ```bash
+  git clone https://github.com/reilleya/openMotor ../openMotor
+  uv pip install --python .venv/Scripts/python.exe scikit-fmm scikit-image cython setuptools
+  cd ../openMotor && ../AeroSim/.venv/Scripts/python.exe setup.py build_ext --inplace && cd -
+  echo "$(cd ../openMotor && pwd -W)" > .venv/Lib/site-packages/openmotor.pth
+  ```
+  If `setup.py` fails on missing PyQt tooling, build only the extension
+  `mathlib._find_perimeter_cy` from `mathlib/_find_perimeter_cy.pyx` with `cythonize`.
 - **Herbie on Windows** prints emoji on import; set `PYTHONUTF8=1` if the console
   encoding raises `UnicodeEncodeError`.
 
@@ -96,7 +105,7 @@ partly built. Everything outside them is a working built-in model.
 | Atmosphere | GFS / HRRR / IFS via Herbie | implemented, untested here |
 | Solid | BATES 0-D ballistics, manual propellant | working |
 | Solid | Propellant library + NASA CEA c*/γ(Pc), burn-rate range warnings | working, KNSB within 0.5 % of Nakka |
-| Solid | openMotor (`propulsion/adapters`) | adapter, verify channel names |
+| Solid | openMotor (`propulsion/adapters`) | working, N2950 sample within 3 % of its designation |
 | Thermo | NASA CEA rocket problem (equilibrium / frozen, blends) | working, validated vs RP-1311 Ex. 8 |
 | Thermo | CoolProp fluids (saturation, density, transport) | working, validated vs NIST |
 | Thermo | Cantera gas model + ignition delay | working, equilibrium within 0.15 % of CEA |
