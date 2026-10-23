@@ -1,6 +1,6 @@
 """Closed-loop examples: air brakes to a target apogee, and TVC on an unstable rocket.
 
-Needs: pip install 'aerosim[control]'
+Needs: pip install -e '.[control]'
 """
 
 import math

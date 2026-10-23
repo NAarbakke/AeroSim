@@ -1,5 +1,5 @@
 # APCP solid motor with propellant performance from NASA CEA.
-# Needs: pip install 'aerosim[chem]'.  Other library propellants: KNSB, KNSU, KNDX, KNER, APCP-NM.
+# Needs: pip install -e '.[chem]'.  Other library propellants: KNSB, KNSU, KNDX, KNER, APCP-NM.
 kind: rocket
 
 propulsion:

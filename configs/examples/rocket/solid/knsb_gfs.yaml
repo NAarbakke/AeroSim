@@ -1,4 +1,4 @@
-# Same rocket, live GFS winds. Needs: pip install 'aerosim[weather]'
+# Same rocket, live GFS winds. Needs: pip install -e '.[weather]'
 kind: rocket
 
 propulsion:

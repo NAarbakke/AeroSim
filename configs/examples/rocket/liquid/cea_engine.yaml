@@ -1,4 +1,4 @@
-# Liquid engine from NASA CEA. Needs: pip install 'aerosim[chem]'
+# Liquid engine from NASA CEA. Needs: pip install -e '.[chem]'
 kind: rocket
 
 propulsion:

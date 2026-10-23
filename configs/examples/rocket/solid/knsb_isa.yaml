@@ -21,7 +21,7 @@ vehicle:
   heading_deg: 90
 
 atmosphere:
-  backend: isa              # swap to: forecast (see solid_rocket_gfs.yaml)
+  backend: isa              # swap to: forecast (see knsb_gfs.yaml)
   wind_speed: 5.0           # m/s at 10 m
   wind_from_deg: 270
 

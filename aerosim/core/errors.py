@@ -21,5 +21,5 @@ def require(module: str, extra: str) -> ModuleType:
     except ImportError as e:
         raise OptionalDependencyError(
             f"'{module}' is required for this feature. Install it with: "
-            f"pip install 'aerosim[{extra}]'"
+            f"pip install -e '.[{extra}]' (from the AeroSim repo root)"
         ) from e

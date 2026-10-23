@@ -1,6 +1,6 @@
 """Optimal throttle profile for maximum altitude (Goddard problem) with Dymos.
 
-Needs: pip install 'aerosim[optim]'
+Needs: pip install -e '.[optim]'
 """
 
 import numpy as np

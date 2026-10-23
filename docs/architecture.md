@@ -19,7 +19,7 @@
           gnc (controllers, actuators, sensors; design via python-control)
                 │
                 ▼
-           FlightResult ──► data_io / plots / Monte Carlo
+           FlightResult ──► core.eng / plots / Monte Carlo
                 ▲
   optimization (OpenMDAO, Dymos, pyCycle) wraps any of the above
 ```
@@ -34,11 +34,30 @@
    `atmosphere`. Only `optimization` and `missions` may import everything.
 3. **Heavy libraries are optional and lazy.** Import them inside functions via
    `core.require(module, extra)`; never at module top level.
-4. **SI everywhere inside.** Convert at the adapter boundary (RocketCEA is
-   English units, JSBSim is feet/lbs).
+4. **SI everywhere inside.** Convert at the adapter boundary (JSBSim is feet/lbs).
 5. **Every external backend has a built-in counterpart** (BATES vs openMotor,
    turbojet vs pyCycle, point-mass vs RocketPy). They cross-check each other and keep
    tests runnable without the heavy stack.
+6. **Unfinished wrappers live in `adapters/`.** `propulsion/adapters/` and
+   `flight/adapters/` hold wrappers around external libraries that are interface-only
+   or partly built. Once one is finished and tested, move it next to its built-in
+   counterpart (e.g. `flight/rocket/`). Registry names do not change, so configs keep working.
+
+## Package layout
+
+```
+aerosim/
+  core/          types, interfaces, registry, units, errors, eng (RASP files)
+  thermo/        combustion/ (NASA CEA)  gas/ (Cantera)  fluids.py (CoolProp)
+  propulsion/    nozzle.py  solid/  liquid/  airbreathing/  adapters/
+  atmosphere/    standard, profile, weather
+  flight/        vehicles.py  rocket/  adapters/
+  gnc/           blocks, controllers, design
+  optimization/  mdao, trajectory
+  missions/      runner (YAML -> backends -> FlightResult)
+tests/           same folder names as aerosim/
+configs/examples/ rocket/solid, rocket/liquid, aircraft
+```
 
 ## Adding a backend
 
@@ -51,16 +70,18 @@ class HybridMotor:
     def thrust_curve(self) -> ThrustCurve: ...
 ```
 
-Import it in the layer's `__init__.py`, add a config example and a test. Done.
+Import it in the layer's `__init__.py` (or `adapters/__init__.py` if it wraps an
+unfinished external library), add a config example under `configs/examples/` and a
+test in the matching `tests/<layer>/` folder. Done.
 
 ## Who does which chemistry
 
 | Question | Tool | Where |
 |---|---|---|
 | Liquid propellant density, vapour pressure, tank blowdown, coolant props, pump work | **CoolProp** (real-fluid equations of state) | `thermo/fluids.py`, `propulsion/liquid/tanks.py` |
-| Rocket chamber: flame temperature, products, c*, Isp through the nozzle | **NASA CEA** (equilibrium; shifting or frozen expansion) | `thermo/nasa_cea.py` |
-| Gas-turbine flow path: cp(T), γ, enthalpy/entropy of air and burned gas along compressor → burner → turbine → nozzle | **Cantera** (mixture thermo) | `thermo/gas.py` |
-| How *fast* chemistry happens: ignition delay, gas generators, residence time, non-equilibrium | **Cantera** (finite-rate kinetics) | `thermo/kinetics.py` |
+| Rocket chamber: flame temperature, products, c*, Isp through the nozzle | **NASA CEA** (equilibrium; shifting or frozen expansion) | `thermo/combustion/nasa_cea.py` |
+| Gas-turbine flow path: cp(T), γ, enthalpy/entropy of air and burned gas along compressor → burner → turbine → nozzle | **Cantera** (mixture thermo) | `thermo/gas/mixture.py` |
+| How *fast* chemistry happens: ignition delay, gas generators, residence time, non-equilibrium | **Cantera** (finite-rate kinetics) | `thermo/gas/kinetics.py` |
 
 CEA and Cantera overlap on equilibrium; `test_cantera_and_cea_agree_on_chamber`
 holds them within 0.3 %. Data flow for a liquid engine:
@@ -70,7 +91,7 @@ cycle → `EngineDeck`.
 
 Solid propellants are CEA problems too: the whole grain is one premixed reactant
 (e.g. KNO3 + sorbitol, AP + Al + HTPB). Ingredients missing from CEA's database
-(sugars, HTPB) are custom reactants in `thermo/solid_propellants.py`. The BATES
+(sugars, HTPB) are custom reactants in `thermo/combustion/solid_propellants.py`. The BATES
 model tabulates c*(Pc) and an effective γ (chosen so the ideal nozzle reproduces
 CEA's Cf, including condensed K2CO3 / Al2O3) and solves the chamber mass balance
 at every web step.
@@ -94,10 +115,10 @@ authority is T·l/I).
 
 ## Turbomachinery → cycle → flight
 
-`turbomachinery.py` turns blade geometry into a `ComponentMap` (TurboFlow
-meanline). `pycycle_engine.py` consumes maps in its Compressor/Turbine elements
+`propulsion/adapters/turbomachinery.py` turns blade geometry into a `ComponentMap` (TurboFlow
+meanline). `propulsion/adapters/pycycle_engine.py` consumes maps in its Compressor/Turbine elements
 and sweeps altitude × Mach × power into an `EngineDeck`. The flight layer
-(JSBSim) only ever sees the deck.
+(JSBSim, `flight/adapters/jsbsim_sim.py`) only ever sees the deck.
 
 ## Roadmap
 

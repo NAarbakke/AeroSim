@@ -30,5 +30,5 @@ def test_registry_unknown_backend():
 
 
 def test_require_message():
-    with pytest.raises(OptionalDependencyError, match=r"aerosim\[x\]"):
+    with pytest.raises(OptionalDependencyError, match=r"\.\[x\]"):
         require("definitely_not_a_module_xyz", "x")

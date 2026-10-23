@@ -1,4 +1,4 @@
-# Aircraft with an engine deck from cycle analysis. Needs: pip install 'aerosim[aircraft]'
+# Aircraft with an engine deck from cycle analysis. Needs: pip install -e '.[aircraft]'
 kind: aircraft
 
 propulsion:
