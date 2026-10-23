@@ -1,7 +1,7 @@
 """Use the layers directly from Python instead of a YAML mission."""
 
 from aerosim.atmosphere import StandardAtmosphere
-from aerosim.data_io import write_eng
+from aerosim.core import write_eng
 from aerosim.flight import RocketVehicle
 from aerosim.flight.rocket import PointMassRocketSim
 from aerosim.propulsion.solid import BatesMotor

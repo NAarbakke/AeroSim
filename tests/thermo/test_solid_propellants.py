@@ -6,7 +6,7 @@ pytest.importorskip("cea")
 
 from aerosim.core import AerosimError
 from aerosim.propulsion.solid import BatesMotor
-from aerosim.thermo import solid_propellants as sp
+from aerosim.thermo.combustion import solid_propellants as sp
 
 GEO = {"grain_outer_diameter": 0.05, "grain_core_diameter": 0.02, "grain_length": 0.09,
            "grain_count": 4, "throat_diameter": 0.012, "expansion_ratio": 6.0}

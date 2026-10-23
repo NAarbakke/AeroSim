@@ -6,7 +6,7 @@ pytest.importorskip("cantera")
 
 from aerosim.propulsion.airbreathing import Turbojet
 from aerosim.thermo.gas import AirFuelGas
-from aerosim.thermo.kinetics import chamber_equilibrium, ignition_delay
+from aerosim.thermo.gas.kinetics import chamber_equilibrium, ignition_delay
 
 
 def test_air_properties_vs_tables():

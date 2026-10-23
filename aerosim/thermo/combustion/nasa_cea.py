@@ -13,7 +13,7 @@ import numpy as np
 
 from aerosim.core import AerosimError, registry, require
 from aerosim.core.units import G0
-from aerosim.thermo import propellants
+from aerosim.thermo.combustion import propellants
 
 _BAR = 1.0e5
 _P_SL = 101_325.0

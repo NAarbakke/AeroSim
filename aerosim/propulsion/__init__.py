@@ -1,6 +1,7 @@
-"""Solid rocket motors: built-in BATES model and the optional openMotor backend."""
+"""Propulsion layer: solid, liquid and airbreathing engines -> ThrustCurve | EngineDeck.
 
-from aerosim.propulsion.solid import bates, openmotor  # noqa: F401
-from aerosim.propulsion.solid.bates import BatesMotor, Propellant
+Built-in models live in solid/, liquid/, airbreathing/. Wrappers around external
+libraries that are not finished yet live in adapters/.
+"""
 
-__all__ = ["BatesMotor", "Propellant"]
+from aerosim.propulsion import adapters, airbreathing, liquid, solid  # noqa: F401  (registers backends)

@@ -39,7 +39,7 @@ def main(argv: list[str] | None = None) -> None:
             summary |= {"total_impulse_Ns": round(p.total_impulse, 1),
                         "burn_time_s": round(p.burn_time, 2), "avg_isp_s": round(p.average_isp, 1)}
             if args.eng:
-                from aerosim.data_io import write_eng
+                from aerosim.core import write_eng
                 write_eng(p, args.eng)
         print(json.dumps(summary, indent=2))
 

@@ -48,7 +48,7 @@ class _ManualModel:
 
 class _CEAModel:
     def __init__(self, prop, expansion_ratio: float, eta_cstar: float) -> None:
-        from aerosim.thermo import solid_propellants as sp
+        from aerosim.thermo.combustion import solid_propellants as sp
         self.sp = sp.get(prop)
         self.name, self.density, self.eta_cstar = self.sp.name, self.sp.density, eta_cstar
         self.burn_rate_n = self.sp.burn_rate_n

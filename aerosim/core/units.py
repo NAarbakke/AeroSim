@@ -1,5 +1,5 @@
 """Unit conversions. Internally aerosim is pure SI; convert only at the edges
-(file readers, adapters for libraries that use other units, e.g. RocketCEA)."""
+(file readers, adapters for libraries that use other units, e.g. JSBSim)."""
 
 G0 = 9.80665            # m/s^2
 R_UNIVERSAL = 8.314462618  # J/(mol K)

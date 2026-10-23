@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from aerosim.data_io import read_eng, write_eng
+from aerosim.core import read_eng, write_eng
 from aerosim.missions import run_mission
 
-CFG = Path(__file__).parents[1] / "configs" / "examples" / "solid_rocket_isa.yaml"
+CFG = Path(__file__).parents[2] / "configs" / "examples" / "rocket" / "solid" / "knsb_isa.yaml"
 
 
 def test_solid_mission_end_to_end():

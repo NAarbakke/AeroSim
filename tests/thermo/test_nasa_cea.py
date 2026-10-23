@@ -8,7 +8,8 @@ pytest.importorskip("cea")
 
 from aerosim.core import AerosimError
 from aerosim.missions import run_mission
-from aerosim.thermo import NasaCEAModel, propellants
+from aerosim.thermo import NasaCEAModel
+from aerosim.thermo.combustion import propellants
 
 
 def test_rp1311_example8_lh2_lox():
@@ -60,7 +61,7 @@ def test_alias_resolution():
 
 
 def test_liquid_mission_end_to_end():
-    cfg = Path(__file__).parents[1] / "configs" / "examples" / "liquid_rocket.yaml"
+    cfg = Path(__file__).parents[2] / "configs" / "examples" / "rocket" / "liquid" / "cea_engine.yaml"
     out = run_mission(cfg)
     assert 200 < out.propulsion.average_isp < 280
     assert out.flight.apogee > 1000

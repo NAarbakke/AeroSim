@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from aerosim.core import ThrustCurve
+from aerosim.core.types import ThrustCurve
 
 
 def read_eng(path: str | Path) -> ThrustCurve:
