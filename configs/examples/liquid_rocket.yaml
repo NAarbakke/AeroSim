@@ -1,0 +1,29 @@
+# Liquid engine from NASA CEA. Needs: pip install 'aerosim[chem]'
+kind: rocket
+
+propulsion:
+  backend: liquid
+  combustion:
+    backend: nasa_cea
+    frozen: null            # null = shifting equilibrium; "chamber" | "throat" = frozen
+  oxidizer: LOX
+  fuel: {Ethanol: 0.75, Water: 0.25}   # 75 % ethanol by mass
+  mixture_ratio: 1.3
+  chamber_pressure: 2.0e+6  # Pa
+  expansion_ratio: 4.0
+  throat_area: 3.0e-4      # m^2
+  burn_time: 12.0
+  throttle: [[0, 1.0], [8, 1.0], [12, 0.7]]
+  dry_mass: 8.0
+
+vehicle:
+  dry_mass: 25.0
+  diameter: 0.16
+  rail_length: 8.0
+  elevation_deg: 86
+
+atmosphere:
+  backend: isa
+
+flight:
+  backend: point_mass

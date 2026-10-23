@@ -1,0 +1,30 @@
+# APCP solid motor with propellant performance from NASA CEA.
+# Needs: pip install 'aerosim[chem]'.  Other library propellants: KNSB, KNSU, KNDX, KNER, APCP-NM.
+kind: rocket
+
+propulsion:
+  backend: bates
+  propellant: APCP          # or a recipe: {name: my-mix, ingredients: {AP: 70, Al: 16, HTPB: 14},
+                            #               burn_rate_a: 5.0e-3, burn_rate_n: 0.35}
+  cstar_efficiency: 0.94    # combustion + two-phase losses for aluminised propellant
+  nozzle_efficiency: 0.95
+  grain_outer_diameter: 0.050
+  grain_core_diameter: 0.022
+  grain_length: 0.090
+  grain_count: 3
+  throat_diameter: 0.014
+  expansion_ratio: 7.0
+  dry_mass: 0.6
+
+vehicle:
+  dry_mass: 3.0
+  diameter: 0.066
+  rail_length: 3.0
+  elevation_deg: 86
+
+atmosphere:
+  backend: isa
+  wind_speed: 4.0
+
+flight:
+  backend: point_mass

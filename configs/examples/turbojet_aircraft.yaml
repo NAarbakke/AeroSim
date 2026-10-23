@@ -1,0 +1,25 @@
+# Aircraft with an engine deck from cycle analysis. Needs: pip install 'aerosim[aircraft]'
+kind: aircraft
+
+propulsion:
+  backend: turbojet         # swap to: pycycle
+  pressure_ratio: 12
+  tt4_max: 1500
+  airflow_sls: 20
+
+propulsion_deck:
+  altitudes: [0, 3000, 6000, 9000, 12000]
+  machs: [0.0, 0.3, 0.6, 0.9]
+  powers: [0.0, 0.5, 1.0]
+
+vehicle:
+  jsbsim_model: f16
+  engine_count: 1
+  initial: {"ic/h-sl-ft": 10000, "ic/vc-kts": 300}
+
+atmosphere:
+  backend: isa
+
+flight:
+  backend: jsbsim
+  duration: 60

@@ -1,0 +1,29 @@
+# Solid rocket, built-in models only: runs with the base install.
+kind: rocket
+
+propulsion:
+  backend: bates            # swap to: openmotor  (ric_file: motors/my_motor.ric)
+  grain_outer_diameter: 0.050
+  grain_core_diameter: 0.020
+  grain_length: 0.090
+  grain_count: 4
+  throat_diameter: 0.012
+  expansion_ratio: 6.0
+  dry_mass: 0.6
+  name: "4-grain KNSB 54mm"
+
+vehicle:
+  dry_mass: 3.0
+  diameter: 0.066
+  drag_coefficient: 0.45
+  rail_length: 3.0
+  elevation_deg: 85
+  heading_deg: 90
+
+atmosphere:
+  backend: isa              # swap to: forecast (see solid_rocket_gfs.yaml)
+  wind_speed: 5.0           # m/s at 10 m
+  wind_from_deg: 270
+
+flight:
+  backend: point_mass       # swap to: rocketpy

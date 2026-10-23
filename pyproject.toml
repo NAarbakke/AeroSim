@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aerosim"
+version = "0.1.0"
+description = "Unified propulsion, atmosphere and flight simulation: solid/liquid rockets, airbreathing engines, live weather."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pyyaml>=6.0",
+]
+
+# Each heavy third-party library is an optional extra, so users install only
+# the layers they need and licence boundaries stay explicit.
+[project.optional-dependencies]
+chem = ["cea>=3.3"]                              # NASA CEA (github.com/nasa/cea)
+rocketcea = ["rocketcea"]                        # legacy cross-check only (GPL-3.0)
+fluids = ["CoolProp>=6.6"]                       # real-fluid props: tanks, blowdown, coolants
+gas = ["cantera>=3.0"]                           # gas properties + finite-rate kinetics
+liquid = ["aerosim[fluids]", "pyskyfire", "fullflow"]   # + regen cooling, feed networks
+airbreathing = ["aerosim[gas]", "om-pycycle", "turboflow"]  # + cycle analysis, meanline turbomachinery
+rocket = ["rocketpy"]                            # 6-DOF rocket flight
+weather = ["herbie-data", "xarray", "cfgrib"]    # GFS / HRRR / IFS downloads
+aircraft = ["jsbsim"]                            # aircraft 6-DOF (LGPL-2.1)
+optim = ["openmdao>=3.30", "dymos>=1.10"]        # MDAO + optimal-control trajectories
+control = ["control>=0.10"]                      # python-control: linear design, margins, LQR
+dev = ["pytest>=8", "ruff"]
+all = ["aerosim[chem,liquid,airbreathing,rocket,weather,aircraft,optim,control]"]
+# RocketPy on Python 3.13: its dependency simplekml may fail to build; install
+# simplekml from source (pure Python) or use Python 3.11/3.12.
+# openMotor (solid grain ballistics) is GPL-3.0 and not on PyPI.
+# Install it separately from https://github.com/reilleya/openMotor — see docs/licensing.md.
+
+[project.scripts]
+aerosim = "aerosim.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["aerosim"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

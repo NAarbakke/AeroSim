@@ -1,0 +1,29 @@
+# Same rocket, live GFS winds. Needs: pip install 'aerosim[weather]'
+kind: rocket
+
+propulsion:
+  backend: bates
+  grain_outer_diameter: 0.050
+  grain_core_diameter: 0.020
+  grain_length: 0.090
+  grain_count: 4
+  throat_diameter: 0.012
+  expansion_ratio: 6.0
+  dry_mass: 0.6
+
+vehicle:
+  dry_mass: 3.0
+  diameter: 0.066
+  rail_length: 3.0
+  elevation_deg: 85
+
+atmosphere:
+  backend: forecast
+  model: gfs                # or hrrr (US, 3 km) / ifs (ECMWF open data)
+  lat: 59.91
+  lon: 10.75
+  time: "2026-10-23 12:00"
+  fxx: 6                    # forecast hour
+
+flight:
+  backend: point_mass
