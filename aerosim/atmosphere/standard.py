@@ -1,4 +1,10 @@
-"""U.S. Standard Atmosphere 1976 (0-86 km geometric) with optional simple wind."""
+"""U.S. Standard Atmosphere 1976 (0-86 km geometric) with optional simple wind.
+
+Above 86 km density follows the piecewise-exponential model of Vallado,
+*Fundamentals of Astrodynamics and Applications*, Table 8-4 (scaled to join US76
+continuously at 86 km), with temperature held at the 86 km value. Good enough for
+ascent drag, fairing-jettison heat flux and short coasts; not for orbit lifetime.
+"""
 
 from __future__ import annotations
 
@@ -39,9 +45,28 @@ def _base_pressures() -> list[float]:
 _P_BASE = _base_pressures()
 
 
+# (base altitude km, base density kg/m^3, scale height km), Vallado Table 8-4
+_EXP = [(80, 1.905e-5, 5.927), (90, 3.396e-6, 5.533), (100, 5.297e-7, 5.877),
+        (110, 9.661e-8, 7.263), (120, 2.438e-8, 9.473), (130, 8.484e-9, 12.636),
+        (140, 3.845e-9, 16.149), (150, 2.070e-9, 22.523), (180, 5.464e-10, 29.740),
+        (200, 2.789e-10, 37.105), (250, 7.248e-11, 45.546), (300, 2.418e-11, 53.628),
+        (350, 9.518e-12, 53.298), (400, 3.725e-12, 58.515), (450, 1.585e-12, 60.828),
+        (500, 6.967e-13, 63.822), (600, 1.454e-13, 71.835), (700, 3.614e-14, 88.667),
+        (800, 1.170e-14, 124.64), (900, 5.245e-15, 181.05), (1000, 3.019e-15, 268.00)]
+
+
+def _exp_density(z_km: float) -> float:
+    h0, rho0, H = max((e for e in _EXP if e[0] <= z_km), key=lambda e: e[0])
+    return rho0 * math.exp(-(z_km - h0) / H)
+
+
 def isa(altitude: float) -> tuple[float, float, float]:
     """Return (pressure Pa, temperature K, density kg/m^3) at geometric altitude (m)."""
-    z = min(max(altitude, -5_000.0), 86_000.0)
+    if altitude > 86_000.0:
+        _p86, t86, rho86 = isa(86_000.0)
+        rho = rho86 * _exp_density(altitude / 1e3) / _exp_density(86.0)
+        return rho * _R * t86, t86, rho
+    z = max(altitude, -5_000.0)
     h = _RE * z / (_RE + z)  # geopotential
     i = max(k for k, layer in enumerate(_LAYERS) if layer[0] <= h) if h >= 0 else 0
     h0, t0, lr = _LAYERS[i]

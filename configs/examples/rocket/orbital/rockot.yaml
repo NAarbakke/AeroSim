@@ -1,0 +1,51 @@
+# Rockot / Breeze-KM from Plesetsk: Rockot User's Guide (EHB0003 Iss. 5 Rev. 0, 2011)
+# reference mission, Figure 3-6: 650 km circular, i = 86.583 deg, via a 160 x 635 km
+# transfer orbit and a second Breeze-KM burn at apogee. Manual: docs/references/rockot/
+#
+# Sources per value:  [UG x-y] = User's Guide table/section,  [EA] = Encyclopedia
+# Astronautica (astronautix.com/r/rokot.html),  [fit] = calibrated to the UG reference
+# trajectory by examples/rockot_ascent.py (fitted lift-off mass 117.0 t vs the guide's 107 t),
+#  [est] = engineering estimate.
+kind: launch_vehicle
+
+vehicle:
+  name: Rockot / Breeze-KM
+  diameter: 2.5                     # [UG 2-1]
+  payload_mass: 1570                # [UG fig 3-1] 650 km circular, i = 86.4 deg
+  fairing_mass: 700                 # [est] 2.5 m composite fairing, Proton heritage
+  adapter_mass: 50                  # [est] adapter + separation system
+  stages:
+    - name: Stage 1                 # 3 x RD-0233 + RD-0234, N2O4/UDMH
+      propellant_mass: 86691        # [fit] (EA: 71455 = gross 77150 - empty 5695)
+      dry_mass: 5695                # [EA]
+      isp_vac: 310                  # [UG 2-2]
+      isp_sl: 285                   # [UG 2-2]
+      burn_time: 121                # [UG 2-2]
+    - name: Stage 2                 # RD-0235 + RD-0236 verniers
+      propellant_mass: 14475        # [fit] (EA: 10710 = gross 12195 - empty 1485)
+      dry_mass: 1485                # [EA]
+      isp_vac: 320                  # [UG 2-3]
+      burn_time: 183                # [UG 2-3]
+    - name: Breeze-KM               # S5.98M, 20 kN, restartable
+      propellant_mass: 4975         # [UG 2-8] 3310 N2O4 + 1665 UDMH (max load)
+      dry_mass: 1320                # [UG 2-8]
+      isp_vac: 325.5                # [UG 2-5]
+      burn_time: 793.6              # 20 kN at 325.5 s -> 6.27 kg/s [UG 2-5]
+      max_burns: 8                  # [UG 2-5]
+
+flight:
+  backend: orbital_ascent
+  latitude: 62.8                    # [UG 3.2] Plesetsk
+  longitude: 40.3
+  program:
+    target_inclination: 86.583      # [UG fig 3-6]
+    vertical_time: 6
+    kick_angle: 17.63              # [fit]
+    kick_time: 10
+    upper_pitch: [[22.01, 5.60]]    # [fit] stage 2: deg above horizon, start -> end
+    insertion_climb: [15.5, -100.0]  # [fit] Breeze burn 1 climb rate m/s, start -> end
+    transfer_apogee: 635.3e+3       # [UG fig 3-6] transfer orbit 160 x 635.3 km
+    fairing_heat_flux: 1135         # [UG 3.3]
+
+atmosphere:
+  backend: isa

@@ -30,8 +30,9 @@ weather = ["herbie-data", "xarray", "cfgrib"]    # GFS / HRRR / IFS downloads
 aircraft = ["jsbsim"]                            # aircraft 6-DOF (LGPL-2.1)
 optim = ["openmdao>=3.30", "dymos>=1.10"]        # MDAO + optimal-control trajectories
 control = ["control>=0.10"]                      # python-control: linear design, margins, LQR
+plot = ["matplotlib>=3.8"]                       # aerosim.plots
 dev = ["pytest>=8", "ruff"]
-all = ["AeroSim[chem,grains,liquid,airbreathing,rocket,weather,aircraft,optim,control]"]
+all = ["AeroSim[chem,grains,liquid,airbreathing,rocket,weather,aircraft,optim,control,plot]"]
 # RocketPy on Python 3.13: its dependency simplekml may fail to build; install
 # simplekml from source (pure Python) or use Python 3.11/3.12.
 # openMotor (solid grain ballistics) is GPL-3.0 and not on PyPI.

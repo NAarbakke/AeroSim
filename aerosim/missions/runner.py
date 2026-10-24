@@ -1,6 +1,6 @@
 """Mission runner: a YAML file picks one backend per layer and wires them together.
 
-    propulsion  -> ThrustCurve | EngineDeck
+    propulsion  -> ThrustCurve | EngineDeck   (kind: launch_vehicle -> stages in the vehicle)
     atmosphere  -> AtmosphereModel
     flight      -> FlightResult
 
@@ -21,7 +21,7 @@ import aerosim.flight
 import aerosim.propulsion
 import aerosim.thermo  # noqa: F401
 from aerosim.core import FlightResult, registry
-from aerosim.flight.vehicles import AircraftVehicle, RocketVehicle
+from aerosim.flight.vehicles import AircraftVehicle, LaunchVehicle, RocketVehicle
 
 
 @dataclass
@@ -42,6 +42,11 @@ def run_mission(config: dict | str | Path) -> MissionOutput:
         config = yaml.safe_load(Path(config).read_text())
 
     kind = config.get("kind", "rocket")
+    if kind == "launch_vehicle":   # stages carry their own propulsion
+        vehicle = LaunchVehicle(**config["vehicle"])
+        atmosphere = _backend(config.get("atmosphere", {"backend": "isa"}), "atmosphere")
+        sim = _backend(config.get("flight", {"backend": "orbital_ascent"}), "flight")
+        return MissionOutput(vehicle, atmosphere, sim.run(vehicle, None, atmosphere))
     engine = _backend(config["propulsion"], "rocket_engine" if kind == "rocket" else "airbreathing")
     if kind == "rocket":
         propulsion = engine.thrust_curve()

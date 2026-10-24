@@ -11,8 +11,10 @@ pip install -e .                      # core + built-in models
 pip install -e '.[chem,fluids,gas]'   # NASA CEA, CoolProp, Cantera
 pip install -e '.[control,optim]'     # python-control, OpenMDAO + Dymos
 pip install -e '.[rocket,weather]'    # add RocketPy + Herbie
+pip install -e '.[grains,plot]'       # non-circular solid grains, matplotlib plots
 pip install -e '.[all,dev]'           # everything on PyPI (except turboflow, see below)
 aerosim run configs/examples/rocket/solid/knsb_isa.yaml
+aerosim run configs/examples/rocket/solid/finocyl_grain_motor.yaml
 aerosim backends
 ```
 
@@ -69,33 +71,43 @@ aerosim/
 │   └── fluids.py         CoolProp: real-fluid props, saturation, pump power
 ├── propulsion/       engines -> ThrustCurve | EngineDeck
 │   ├── nozzle.py         isentropic relations (shared)
-│   ├── solid/            bates.py (CEA propellants or manual)
+│   ├── solid/            bates.py (fast BATES) · grain_motor.py (any grain stack, time-stepped)
+│   │                     grains.py (BATES, finocyl, star, C, D, X, moon, rod-and-tube,
+│   │                     end burner, custom outline) · propellant.py · ric.py (openMotor files)
 │   ├── liquid/           engine.py (CEA-based) · tanks.py (CoolProp, N2O blowdown)
 │   ├── airbreathing/     ideal_turbojet.py (constant-cp or Cantera)
-│   └── adapters/         unfinished wrappers: openmotor · pycycle_engine ·
+│   └── adapters/         external wrappers: openmotor (cross-check) · pycycle_engine ·
 │                         turbomachinery (TurboFlow) · feed_system (FullFlow / pyskyfire)
-├── atmosphere/       standard.py (US76) · profile.py · weather.py (GFS/HRRR/IFS via Herbie)
-├── flight/           vehicles.py
-│   ├── rocket/           point_mass.py (3-DOF) · planar.py (attitude, TVC)
-│   └── adapters/         unfinished wrappers: rocketpy_sim · jsbsim_sim
+├── atmosphere/       standard.py (US76, exponential above 86 km) · profile.py · weather.py
+├── flight/           vehicles.py (RocketVehicle, AircraftVehicle, Stage, LaunchVehicle)
+│   ├── orbits.py         Earth model (WGS-84, J2, rotation), orbit elements
+│   ├── rocket/           point_mass.py (3-DOF) · planar.py (attitude, TVC) ·
+│   │                     orbital_ascent.py (multi-stage launcher to orbit, programme fitting)
+│   └── adapters/         rocketpy_sim (6-DOF) · jsbsim_sim (unfinished)
 ├── gnc/              guidance & control
 │   ├── blocks.py         PID (anti-windup), Actuator (lag/rate/limits), Sensor (noise/bias)
 │   ├── controllers.py    AirbrakeApogeeController, AttitudeHoldTVC (gain-scheduled)
 │   └── design.py         python-control: TVC plant, pole placement, LQR, margins, discretize
 ├── optimization/     mdao.py (OpenMDAO components) · trajectory.py (Dymos optimal ascent)
 ├── missions/         YAML-driven runner wiring propulsion -> atmosphere -> flight
+├── plots/            matplotlib charts: thrust curves, motor history, grain burnback,
+│                     flight profiles, ascent small multiples, ground tracks
 └── cli.py            aerosim run | backends | atm
 configs/examples/
 ├── rocket/solid/     knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
+│                     finocyl_grain_motor (GrainMotor)
 ├── rocket/liquid/    cea_engine
+├── rocket/orbital/   rockot (Rockot / Breeze-KM from Plesetsk)
 └── aircraft/         turbojet
-examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent
+examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
+                      rockot_ascent (calibrate + fly the Rockot reference mission)
 tests/                pytest, one folder per layer (core, thermo, propulsion, ...)
-docs/                 architecture.md · licensing.md
+docs/                 architecture.md · licensing.md · references/rockot (User's Guide) ·
+                      briefings/rockot (PDF + PPTX briefing and its generator)
 ```
 
-`adapters/` folders hold wrappers around external libraries that are interface-only or
-partly built. Everything outside them is a working built-in model.
+`adapters/` folders hold wrappers around external libraries. Everything outside them is a
+built-in model.
 
 ## Status
 
@@ -105,7 +117,8 @@ partly built. Everything outside them is a working built-in model.
 | Atmosphere | GFS / HRRR / IFS via Herbie | implemented, untested here |
 | Solid | BATES 0-D ballistics, manual propellant | working |
 | Solid | Propellant library + NASA CEA c*/γ(Pc), burn-rate range warnings | working, KNSB within 0.5 % of Nakka |
-| Solid | openMotor (`propulsion/adapters`) | working, N2950 sample within 3 % of its designation |
+| Solid | GrainMotor: 10 grain types, tabbed propellants, erosion/slag, .ric files | working; 13 openMotor regression motors: mass within 1.5 %, Isp 0-8 % high |
+| Solid | openMotor (`propulsion/adapters`, cross-check) | working, N2950 sample within 3 % of its designation |
 | Thermo | NASA CEA rocket problem (equilibrium / frozen, blends) | working, validated vs RP-1311 Ex. 8 |
 | Thermo | CoolProp fluids (saturation, density, transport) | working, validated vs NIST |
 | Thermo | Cantera gas model + ignition delay | working, equilibrium within 0.15 % of CEA |
@@ -116,11 +129,13 @@ partly built. Everything outside them is a working built-in model.
 | Airbreathing | pyCycle, TurboFlow maps (`propulsion/adapters`) | interface only |
 | Flight | 3-DOF point-mass rocket with wind (open or closed loop) | working |
 | Flight | Planar rigid-body rocket: attitude, weathercocking, TVC | working |
-| Flight | RocketPy 6-DOF (`flight/adapters`) | motor done, Rocket build TODO |
+| Flight | RocketPy 6-DOF (`flight/adapters`) | working; no wind: apogee within 0.3 % of point-mass |
+| Flight | Multi-stage orbital ascent (rotating oblate Earth, staging, fairing, restarts) | working; Rockot reference mission reproduced, see briefing |
 | Flight | JSBSim (`flight/adapters`) | runner done, deck->XML TODO |
 | GNC | PID / actuators / sensors, air-brake apogee control, TVC attitude hold | working |
 | GNC | python-control design: pole placement, LQR, margins | working |
 | Optimization | Dymos optimal throttle (Goddard), max-q constraint | working, verified by independent replay |
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
+| Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |
 
 See `docs/architecture.md` for the design rules and how to add a backend.

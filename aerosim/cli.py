@@ -34,6 +34,12 @@ def main(argv: list[str] | None = None) -> None:
         r = out.flight
         summary = {"apogee_m": round(r.apogee, 1), "max_speed_m_s": round(r.max_speed, 1),
                    "events_s": {k: round(v, 2) for k, v in r.events.items()}}
+        orbit = getattr(r, "final_orbit", None)
+        if orbit is not None:
+            summary |= {"final_orbit_km": [round(orbit.perigee_alt / 1e3, 1),
+                                           round(orbit.apogee_alt / 1e3, 1)],
+                        "inclination_deg": round(orbit.inclination, 3),
+                        "max_q_kPa": round(float(r.dynamic_pressure.max()) / 1e3, 1)}
         if isinstance(out.propulsion, ThrustCurve):
             p = out.propulsion
             summary |= {"total_impulse_Ns": round(p.total_impulse, 1),

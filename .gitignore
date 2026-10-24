@@ -12,3 +12,6 @@ dist/
 !configs/**/*.eng
 outputs/
 *_out/
+node_modules/
+docs/briefings/**/build/package-lock.json
+!docs/briefings/*/build/

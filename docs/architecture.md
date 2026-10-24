@@ -13,13 +13,13 @@
  │   └ turbomachinery ─► ComponentMap  │                │
  └──────────────┬──────────────────────┘                │
                 ▼                                       ▼
-          flight (point_mass, planar, RocketPy, JSBSim)  ◄──────┘
+          flight (point_mass, planar, orbital_ascent, RocketPy, JSBSim)  ◄──────┘
                 │   ▲
          state  ▼   │ commands (gimbal, air brake, throttle)
           gnc (controllers, actuators, sensors; design via python-control)
                 │
                 ▼
-           FlightResult ──► core.eng / plots / Monte Carlo
+           FlightResult ──► core.eng / aerosim.plots / Monte Carlo
                 ▲
   optimization (OpenMDAO, Dymos, pyCycle) wraps any of the above
 ```
@@ -120,9 +120,38 @@ meanline). `propulsion/adapters/pycycle_engine.py` consumes maps in its Compress
 and sweeps altitude × Mach × power into an `EngineDeck`. The flight layer
 (JSBSim, `flight/adapters/jsbsim_sim.py`) only ever sees the deck.
 
+## Solid motors: two models, one propellant interface
+
+`BatesMotor` (web-stepped, cylindrical grains only) is the fast model for
+optimisation loops. `GrainMotor` time-steps any stack of grains: closed-form
+geometry for BATES, rod-and-tube and end burners; every other core shape is drawn
+on a grid and regressed with a fast-marching distance transform (scikit-fmm),
+perimeter from marching squares (scikit-image). Both use `solid/propellant.py`
+(manual, NASA CEA library, or openMotor-style tabbed burn-rate laws) and the
+shared `solve_pressure` mass balance. `ric.py` reads openMotor files (format only);
+the openMotor adapter stays as an independent cross-check. GrainMotor is a clean
+implementation, so AeroSim's licence is unaffected by openMotor's GPL.
+
+## Orbital ascent
+
+`flight/rocket/orbital_ascent.py` flies a `LaunchVehicle` (stages bottom to top)
+over a rotating WGS-84 Earth with J2 (`flight/orbits.py`): vertical rise, pitch
+kick along the rotation-corrected launch azimuth, gravity turn, programmed pitch
+with yaw nulling of out-of-plane velocity, closed-loop climb-rate insertion burn,
+coast to apogee and a circularisation burn. `solve_program` fits programme and
+vehicle parameters to orbit or waypoint targets by least squares; the Rockot
+example (`examples/rockot_ascent.py`) uses it to calibrate unpublished stage
+masses to the User's Guide reference trajectory.
+
+## Plotting
+
+`aerosim.plots` returns matplotlib figures in one validated, colour-vision-safe
+palette (light and dark), one y-axis per panel, small multiples instead of twin
+axes, text in ink colours, legends whenever there are two or more series.
+
 ## Roadmap
 
-1. Finish RocketPy `Rocket` construction; validate point-mass vs RocketPy.
+1. RocketPy: fins / drag from geometry, parachute descent validation.
 2. pyCycle turbojet from its `simple_turbojet` example; validate vs built-in turbojet.
 3. NASA CEA done: add transport properties (cea transport=True) for regen-cooling heat flux.
 4. Monte Carlo module (dispersions on wind, thrust, Cd) in `missions/`.
@@ -133,5 +162,7 @@ and sweeps altitude × Mach × power into an `EngineDeck`. The flight layer
 8. Kerosene/ethanol kinetics mechanisms; 1-D finite-rate nozzle with Cantera.
 9. Controllers in mission YAML; throttle command for liquid engines (Dymos schedule
    tracking in closed loop); full 6-DOF TVC/fin control via RocketPy controllers.
-10. Piecewise burn-rate laws (Nakka KNSB segments), erosive burning, ignition transient.
+10. Erosive burning and ignition transient in GrainMotor; nozzle throat-length and
+    convergence losses (GrainMotor Isp runs 0-8 % above openMotor without them).
 11. Dymos: gravity-turn ascent with pitch control; IPOPT via pyoptsparse when available.
+12. Orbital ascent: drop-zone impact points, payload-vs-orbit sweeps, SSO plane change.

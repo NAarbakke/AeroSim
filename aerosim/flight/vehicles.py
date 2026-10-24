@@ -51,3 +51,67 @@ class AircraftVehicle:
     jsbsim_model: str               # aircraft folder name in the JSBSim root, e.g. "c172x"
     engine_count: int = 1
     initial: dict = field(default_factory=dict)   # altitude, speed, heading, lat, lon
+
+
+@dataclass
+class Stage:
+    """One propulsive stage. Thrust at altitude: F = F_vac - p_amb * A_exit, with
+    A_exit implied by the sea-level Isp (``isp_sl``; None = vacuum-only engine).
+    Mass flow is constant at propellant_mass / burn_time (full-thrust equivalent)."""
+
+    name: str
+    propellant_mass: float          # kg, usable
+    dry_mass: float                 # kg, dropped at separation
+    isp_vac: float                  # s
+    burn_time: float                # s, at full thrust
+    isp_sl: float | None = None     # s
+    max_burns: int = 1              # restartable upper stages > 1
+
+    @property
+    def mass_flow(self) -> float:
+        return self.propellant_mass / self.burn_time
+
+    @property
+    def thrust_vac(self) -> float:
+        return self.mass_flow * self.isp_vac * 9.80665
+
+    @property
+    def exit_area(self) -> float:
+        if self.isp_sl is None:
+            return 0.0
+        return self.mass_flow * (self.isp_vac - self.isp_sl) * 9.80665 / 101_325.0
+
+    def thrust(self, ambient_pressure: float) -> float:
+        return max(self.thrust_vac - ambient_pressure * self.exit_area, 0.0)
+
+
+@dataclass
+class LaunchVehicle:
+    """Multi-stage orbital launcher, stages bottom to top (the last one carries the payload)."""
+
+    stages: list[Stage]
+    payload_mass: float             # kg
+    fairing_mass: float = 0.0       # kg, jettisoned during flight
+    adapter_mass: float = 0.0       # kg, stays with the last stage
+    diameter: float = 2.5           # m, reference for drag
+    drag_curve: list[tuple[float, float]] = field(default_factory=lambda: [
+        (0.0, 0.30), (0.8, 0.33), (1.0, 0.48), (1.2, 0.52), (1.5, 0.45),
+        (2.0, 0.38), (3.0, 0.30), (5.0, 0.25), (10.0, 0.22)])   # generic slender LV
+    name: str = "launch vehicle"
+
+    def __post_init__(self) -> None:
+        self.stages = [s if isinstance(s, Stage) else Stage(**s) for s in self.stages]
+
+    @property
+    def liftoff_mass(self) -> float:
+        return (sum(s.propellant_mass + s.dry_mass for s in self.stages) + self.payload_mass
+                + self.fairing_mass + self.adapter_mass)
+
+    @property
+    def reference_area(self) -> float:
+        return 3.141592653589793 / 4 * self.diameter**2
+
+    def cd(self, mach: float) -> float:
+        import numpy as np
+        m, c = zip(*self.drag_curve)
+        return float(np.interp(mach, m, c))
