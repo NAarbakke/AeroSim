@@ -27,8 +27,9 @@ class RocketVehicle:
     gimbal_limit_deg: float = 5.0
     gimbal_tau: float = 0.02        # s
     gimbal_rate_deg: float = 150.0  # deg/s
-    # higher-fidelity fields used by the RocketPy backend
+    # higher-fidelity fields used by the RocketPy backend (positions from the nose tip, m)
     length: float | None = None
+    cg_position: float | None = None      # airframe CG without motor
     nose: dict = field(default_factory=dict)
     fins: dict = field(default_factory=dict)
     parachutes: list[dict] = field(default_factory=list)
