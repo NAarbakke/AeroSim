@@ -1,25 +1,28 @@
-# Aircraft with an engine deck from cycle analysis. Needs: pip install -e '.[aircraft]'
+# JSBSim F-16 airframe (aero, flight controls, mass) flown on an AeroSim engine deck.
+# The F-16's own engine is shut down; the deck's thrust is applied as an external force and
+# its fuel flow drains the tanks. Needs: pip install -e '.[aircraft,gas]'
 kind: aircraft
 
 propulsion:
-  backend: turbojet         # swap to: pycycle
-  pressure_ratio: 12
-  tt4_max: 1500
-  airflow_sls: 20
+  backend: turbojet         # built-in cycle; swap to: pycycle (architecture: turbofan, design: {...})
+  pressure_ratio: 25
+  tt4_max: 1700             # K
+  airflow_sls: 110          # kg/s, F100 class (~113 kN static)
 
 propulsion_deck:
   altitudes: [0, 3000, 6000, 9000, 12000]
-  machs: [0.0, 0.3, 0.6, 0.9]
+  machs: [0.0, 0.3, 0.6, 0.9, 1.2]
   powers: [0.0, 0.5, 1.0]
 
 vehicle:
   jsbsim_model: f16
   engine_count: 1
-  initial: {"ic/h-sl-ft": 10000, "ic/vc-kts": 300}
+  initial: {"ic/h-sl-ft": 10000, "ic/vc-kts": 350, "ic/psi-true-deg": 60}
 
 atmosphere:
   backend: isa
 
 flight:
   backend: jsbsim
-  duration: 60
+  duration: 180
+  autopilot: {altitude: 4000, mach: 0.8, heading: 90}   # m, -, deg

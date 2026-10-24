@@ -1,8 +1,8 @@
-"""Feed system & engine-cycle backends (pressure-fed, pump-fed, regen cooling).
+"""Feed-network backend (interface only).
 
-Planned backends:
-- ``fullflow``  : network solver for tanks, lines, pumps, injectors (github.com/saakethramoju/FullFlow)
-- ``pyskyfire`` : regenerative cooling + full cycle analysis
+Planned: ``fullflow``, a network solver for tanks, lines, pumps and injectors
+(github.com/saakethramoju/FullFlow). Engine cycles (turbopump power balance) are built in:
+``propulsion/liquid/cycle.py``; regenerative cooling is ``adapters/regen.py`` (pyskyfire).
 
 Contract: a FeedSystem resolves the operating point the chamber actually sees,
 i.e. returns {"chamber_pressure", "mixture_ratio", "mdot_ox", "mdot_fuel"} as a
@@ -24,11 +24,3 @@ class FullFlowFeed:
 
     def operating_point(self, t: float, throttle: float = 1.0) -> dict[str, float]:
         raise NotImplementedError("TODO: build FullFlow Network and solve at time t")
-
-
-class PyskyfireCycle:
-    def __init__(self, engine_file: str) -> None:
-        self.engine_file = engine_file
-
-    def operating_point(self, t: float, throttle: float = 1.0) -> dict[str, float]:
-        raise NotImplementedError("TODO: run pyskyfire cycle + regen solve")

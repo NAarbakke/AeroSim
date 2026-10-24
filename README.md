@@ -74,11 +74,16 @@ aerosim/
 │   ├── solid/            bates.py (fast BATES) · grain_motor.py (any grain stack, time-stepped)
 │   │                     grains.py (BATES, finocyl, star, C, D, X, moon, rod-and-tube,
 │   │                     end burner, custom outline) · propellant.py · ric.py (openMotor files)
+│   ├── hybrid/           motor.py (N2O self-pressurising or regulated feed, a*G^n regression,
+│   │                     O/F shift, CEA performance over O/F and Pc)
 │   ├── liquid/           engine.py (CEA-based) · design.py (engine design point: CEA + losses ->
-│   │                     Isp, mdot, nozzle) · tanks.py (CoolProp, N2O blowdown)
-│   ├── airbreathing/     ideal_turbojet.py (constant-cp or Cantera)
-│   └── adapters/         external wrappers: openmotor (cross-check) · pycycle_engine ·
-│                         turbomachinery (TurboFlow) · feed_system (FullFlow / pyskyfire)
+│   │                     Isp, mdot, nozzle) · cycle.py (pressure-fed, electric pump, gas
+│   │                     generator, staged combustion, expander power balance) · tanks.py
+│   ├── airbreathing/     ideal_turbojet.py (constant-cp or Cantera) · ramjet.py (ramjet and
+│   │                     scramjet, Cantera equilibrium)
+│   └── adapters/         external wrappers: openmotor (cross-check) · pycycle_engine (turbojet,
+│                         turbofan) · regen (pyskyfire cooling) · turbomachinery (TurboFlow) ·
+│                         feed_system (FullFlow)
 ├── atmosphere/       standard.py (US76, exponential above 86 km) · profile.py · weather.py
 ├── flight/           vehicles.py (RocketVehicle, AircraftVehicle, Stage, LaunchVehicle)
 │   ├── aero.py           launcher drag build-up from geometry (friction, wave, base)
@@ -86,11 +91,13 @@ aerosim/
 │   ├── rocket/           point_mass.py (3-DOF) · planar.py (attitude, TVC) ·
 │   │                     orbital_ascent.py (multi-stage launcher to orbit; programme fitting
 │   │                     and trajectory optimisation)
-│   └── adapters/         rocketpy_sim (6-DOF) · jsbsim_sim (unfinished)
+│   └── adapters/         rocketpy_sim (6-DOF) · jsbsim_sim (JSBSim airframe on an AeroSim
+│                         engine deck, autopilot)
 ├── gnc/              guidance & control
 │   ├── blocks.py         PID (anti-windup), Actuator (lag/rate/limits), Sensor (noise/bias)
 │   ├── controllers.py    AirbrakeApogeeController, AttitudeHoldTVC (gain-scheduled)
-│   └── design.py         python-control: TVC plant, pole placement, LQR, margins, discretize
+│   ├── design.py         python-control: TVC plant, pole placement, LQR, margins, discretize
+│   └── landing.py        convex powered-descent guidance (cvxpy) + closed-loop landing sim
 ├── optimization/     mdao.py (OpenMDAO components) · trajectory.py (Dymos optimal ascent)
 ├── missions/         YAML-driven runner wiring propulsion -> atmosphere -> flight
 ├── plots/            matplotlib charts: thrust curves, motor history, grain burnback,
@@ -100,10 +107,11 @@ aerosim/
 configs/             example YAML mission configs (aerosim run <file>)
 ├── solid/            knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
 │                     finocyl_grain_motor (GrainMotor)
+├── hybrid/           n2o_htpb_sounding (N2O/HTPB hybrid sounding rocket)
 ├── liquid/           cea_engine
 ├── orbital/          rockot (calibrated to the User's Guide) · rockot_first_principles
 │                     (CEA engines, drag from geometry, optimised steering)
-└── aircraft/         turbojet
+└── aircraft/         turbojet (JSBSim F-16 airframe on an AeroSim turbojet deck)
 examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
                       rockot_ascent (calibrate + fly the Rockot reference mission) ·
                       rockot_first_principles (predict it, then check) · rockot_replay (3D)
@@ -130,17 +138,23 @@ built-in model.
 | Thermo | Cantera gas model + ignition delay | working, equilibrium within 0.15 % of CEA |
 | Liquid | CEA-based chamber + throttle | working |
 | Liquid | Tanks (sizing, loaded mass) + N2O self-pressurising blowdown | working |
-| Liquid | FullFlow / pyskyfire feed & regen (`propulsion/adapters`) | interface only |
+| Liquid | Engine cycles: pressure-fed, electric pump, gas generator, staged combustion (fuel/ox-rich), expander | working; F-1 turbopump power 13 % low, RD-180 Isp within 0.5 %, RS-25 fuel-pump discharge 11 % low |
+| Liquid | Regenerative cooling via pyskyfire (`propulsion/adapters/regen.py`), coupled to the expander cycle | working; RL10-class expander closes, Isp 1.4 % below the RL10A-3-3A |
+| Liquid | FullFlow feed networks (`propulsion/adapters`) | interface only |
+| Hybrid | N2O self-pressurising / regulated feed, regression law, O/F shift, CEA | working; mass balance exact; regression a, n must come from firings |
 | Airbreathing | built-in turbojet cycle (constant-cp or Cantera real-gas) | working |
-| Airbreathing | pyCycle, TurboFlow maps (`propulsion/adapters`) | interface only |
+| Airbreathing | Ramjet / scramjet, Cantera equilibrium burner and nozzle | working; kerosene ramjet Isp 1,400-1,700 s at Mach 2-4 |
+| Airbreathing | pyCycle turbojet / two-spool turbofan, design + map-based off-design (`propulsion/adapters`) | working (needs om-pycycle from its master on numpy 2.5); J79 air flow within 1 %, TSFC 11 % low; CFM56-7B27 OPR, air flow and takeoff TSFC inside published ranges |
+| Airbreathing | TurboFlow maps (`propulsion/adapters`) | interface only |
 | Flight | 3-DOF point-mass rocket with wind (open or closed loop) | working |
 | Flight | Planar rigid-body rocket: attitude, weathercocking, TVC | working |
 | Flight | RocketPy 6-DOF (`flight/adapters`) | working; no wind: apogee within 0.3 % of point-mass |
 | Flight | Multi-stage orbital ascent (rotating oblate Earth, staging, fairing, restarts) | working; Rockot reference mission reproduced, see briefing |
 | Flight | Trajectory optimisation (`optimize_program`), drag from geometry | working; first-principles Rockot reaches orbit, burnout speeds within 2.5 % of the guide |
-| Flight | JSBSim (`flight/adapters`) | runner done, deck->XML TODO |
+| Flight | JSBSim airframe on an AeroSim engine deck, altitude / Mach / heading autopilot | working; F-16 holds 4,000 m, Mach 0.80, 90 deg |
 | GNC | PID / actuators / sensors, air-brake apogee control, TVC attitude hold | working |
 | GNC | python-control design: pole placement, LQR, margins | working |
+| GNC | Booster landing: convex powered-descent guidance, replanned with drag and wind | working; Falcon 9-class touchdown under 2 m/s, on target |
 | Optimization | Dymos optimal throttle (Goddard), max-q constraint | working, verified by independent replay |
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
 | Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |

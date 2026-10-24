@@ -1,8 +1,8 @@
 """Liquid engine performance model built on any CombustionModel (CEA backends).
 
 Level 0 (this file): chamber performance from CEA + throttle schedule -> ThrustCurve.
-Level 1 (propulsion/adapters/feed_system.py): pressure-fed / pump-fed network that sets Pc and MR.
-Level 2: regen cooling & full cycle closure via pyskyfire.
+Level 1 (cycle.py): turbopump power balance for pressure-fed, electric-pump, gas-generator,
+staged-combustion and expander cycles; regen cooling from pyskyfire (adapters/regen.py).
 """
 
 from __future__ import annotations

@@ -1,0 +1,36 @@
+# Hybrid sounding rocket: N2O self-pressurising tank over an HTPB grain (built-in models,
+# needs the [chem] and [fluids] extras for CEA and CoolProp).
+# The regression law rdot = a * G_ox^n is propellant-pair and motor specific: the values
+# below are [assumed] (about 2 mm/s at 1400 kg/m^2/s, typical of N2O/HTPB); replace them
+# with a fit to your own firings.
+kind: rocket
+
+propulsion:
+  backend: hybrid
+  fuel: HTPB
+  oxidizer: N2O
+  grain_length: 1.0            # m
+  port_radius: 0.015           # m, initial
+  outer_radius: 0.045          # m
+  regression_a: 5.3e-5         # m/s per (kg/m^2/s)^n  [assumed]
+  regression_n: 0.5            # [assumed]
+  throat_area: 5.3e-4          # m^2 (26 mm throat)
+  expansion_ratio: 5.0
+  tank: {volume: 0.012, mass: 8.0, temperature: 293.15}   # 12 L, 8 kg N2O at 20 C
+  injector_area: 2.8e-5        # m^2 (total orifice area), Cd 0.65
+  dry_mass: 8.0                # tank, case, injector, nozzle
+  name: "N2O/HTPB 2.7 kN"
+
+vehicle:
+  dry_mass: 12.0
+  diameter: 0.12
+  drag_coefficient: 0.45
+  rail_length: 6.0
+  elevation_deg: 85
+  heading_deg: 90
+
+atmosphere:
+  backend: isa
+
+flight:
+  backend: point_mass          # swap to: rocketpy

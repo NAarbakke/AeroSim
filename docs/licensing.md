@@ -8,9 +8,11 @@ Choose AeroSim's own licence deliberately; the table shows what each choice impl
 | OpenMDAO, Dymos, pyCycle | Apache-2.0 | optional extra | none (keep NOTICE) |
 | NASA CEA (`cea`) | NASA open source; export-control notice | `chem` extra, the combustion backend | follow NASA terms |
 | openMotor | GPL-3.0 | **not a dependency**; user installs it | distributing a bundle that includes it is GPL |
-| JSBSim | LGPL-2.1 | optional extra, unmodified library | permissive use OK |
+| JSBSim | LGPL-2.1 | optional extra, unmodified library; its aircraft files are copied to a temp folder and patched at run time, never redistributed | permissive use OK |
 | Herbie | MIT | optional extra | none |
-| TurboFlow, pyskyfire, FullFlow | check each repo | optional extra | verify before release |
+| pyskyfire | MIT | `liquid` extra, regen cooling | none |
+| cvxpy | Apache-2.0 | `landing` extra, landing guidance | none (keep NOTICE) |
+| TurboFlow, FullFlow | check each repo | optional extra | verify before release |
 | CoolProp | MIT | `fluids` extra | none |
 | Cantera | BSD-3-Clause | `gas` extra | none (keep notice) |
 

@@ -171,15 +171,38 @@ standalone HTML page that works offline (three.js and flight data embedded): glo
 coastlines (Natural Earth, public domain), live telemetry, charts and time
 controls.
 
+## Engines and vehicles beyond solid rockets
+
+- **Liquid cycles** (`propulsion/liquid/cycle.py`): one steady power balance per cycle. Pump
+  work is the real-fluid isentropic enthalpy rise (CoolProp); turbine drive gas is CEA
+  equilibrium at the generator / preburner mixture ratio that gives the turbine-inlet
+  temperature. Open cycles solve the turbine flow; closed cycles solve the turbine pressure
+  ratio (staged combustion) or pump discharge pressure (expander). The expander's turbine
+  inlet temperature comes from pyskyfire's coupled hot-gas / wall / coolant solution
+  (`adapters/regen.py`), which also replaces the assumed jacket pressure drop.
+- **Hybrids** (`propulsion/hybrid/motor.py`): oxidizer from the two-phase N2O tank (or a
+  regulated flow), fuel from a*G^n regression, chamber pressure from the mass balance with
+  c*(O/F, Pc) tabulated from CEA. Registered as a `rocket_engine`, so it flies on every
+  rocket simulator (`configs/hybrid/`).
+- **Ramjet / scramjet** (`propulsion/airbreathing/ramjet.py`): stream-tube cycles on Cantera,
+  burner at equilibrium (dissociation included), shifting-equilibrium nozzle.
+- **Gas turbines in pyCycle** (`adapters/pycycle_engine.py`): turbojet and two-spool
+  turbofan, design point plus map-based off-design, `deck()` for flight.
+- **Aircraft** (`flight/adapters/jsbsim_sim.py`): a JSBSim airframe with its own engines shut
+  down and an external thrust force driven by any `EngineDeck`; fuel flow drains its tanks.
+- **Booster landing** (`gnc/landing.py`): lossless-convexification powered descent (SOCP,
+  cvxpy, built once with parameters and re-solved), flown with drag and wind and replanned.
+
 ## Roadmap
 
 1. RocketPy: fins / drag from geometry, parachute descent validation.
-2. pyCycle turbojet from its `simple_turbojet` example; validate vs built-in turbojet.
+2. pyCycle: turbine cooling and bleed flows (closes the J79 TSFC gap); rating limits
+   (spool speed, T4 at altitude) instead of a fixed T4 schedule for decks.
 3. NASA CEA done: add transport properties (cea transport=True) for regen-cooling heat flux.
 4. Monte Carlo module (dispersions on wind, thrust, Cd) in `missions/`.
 5. ERA5 reanalysis adapter (`cdsapi`) for post-flight reconstruction.
-6. Hybrid motors on top of `SelfPressurisingTank` (N2O) + regression-rate fuel grain;
-   FullFlow feed-system coupling for liquid blowdown.
+6. FullFlow feed-system coupling for liquid blowdown; hybrid regression laws fitted to
+   firing data; landing guidance with aerodynamics in the convex problem.
 7. Two-phase injector model (Dyer / HEM) for N2O, replacing SPI.
 8. Kerosene/ethanol kinetics mechanisms; 1-D finite-rate nozzle with Cantera.
 9. Controllers in mission YAML; throttle command for liquid engines (Dymos schedule

@@ -32,8 +32,16 @@ def main(argv: list[str] | None = None) -> None:
         from aerosim.missions import run_mission
         out = run_mission(args.config)
         r = out.flight
-        summary = {"apogee_m": round(r.apogee, 1), "max_speed_m_s": round(r.max_speed, 1),
-                   "events_s": {k: round(v, 2) for k, v in r.events.items()}}
+        if r.meta.get("simulator") == "jsbsim":           # aircraft: where it ended up
+            m = r.meta
+            summary = {"duration_s": round(float(r.time[-1]), 1),
+                       "final_altitude_m": round(float(r.position[-1, 2]), 1),
+                       "final_mach": round(float(m["mach"][-1]), 3),
+                       "final_heading_deg": round(float(m["heading_deg"][-1]), 1),
+                       "fuel_used_kg": round(m["fuel_used"], 1), "targets": m["targets"]}
+        else:
+            summary = {"apogee_m": round(r.apogee, 1), "max_speed_m_s": round(r.max_speed, 1),
+                       "events_s": {k: round(v, 2) for k, v in r.events.items()}}
         orbit = getattr(r, "final_orbit", None)
         if orbit is not None:
             summary |= {"final_orbit_km": [round(orbit.perigee_alt / 1e3, 1),

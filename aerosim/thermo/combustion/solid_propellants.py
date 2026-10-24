@@ -54,6 +54,10 @@ DATABASE_INGREDIENTS: dict[str, tuple[str, float]] = {
     "C": ("C(gr)", 2200.0),        # carbon black / graphite
     "S": ("S(a)", 2070.0),
     "Fe2O3": ("Fe2O3(cr)", 5240.0),  # burn-rate catalyst
+    # hybrid oxidizers (density = liquid at storage): CEA has only gaseous N2O, at 298 K
+    "N2O": ("N2O", 786.0),
+    "GOX": ("O2", 1141.0),
+    "LOX": ("O2(L)", 1141.0),
 }
 
 CUSTOM_INGREDIENTS: dict[str, CustomIngredient] = {
@@ -64,6 +68,10 @@ CUSTOM_INGREDIENTS: dict[str, CustomIngredient] = {
     # HTPB varies by supplier/cure; this lumped formula is a common approximation.
     "HTPB": CustomIngredient({"C": 10, "H": 15.4, "O": 0.07}, -51.9e3, 920.0,
                              "approximate; replace with supplier data"),
+    # paraffin wax as n-C32H66; heat of formation of the solid estimated by CH2 group
+    # additivity from n-hexadecane (liquid) less the heat of fusion: approximate
+    "Paraffin": CustomIngredient({"C": 32, "H": 66}, -940.0e3, 900.0,
+                                 "n-C32H66, heat of formation estimated"),
 }
 
 
@@ -164,10 +172,16 @@ def _mixture(prop: SolidPropellant):
 
 
 def performance(propellant, chamber_pressure: float, expansion_ratio: float,
-                ambient_pressure: float = _P_SL) -> dict[str, float]:
-    """Ideal (equilibrium) motor performance from NASA CEA, SI units."""
+                ambient_pressure: float = _P_SL, weights=None) -> dict[str, float]:
+    """Ideal (equilibrium) motor performance from NASA CEA, SI units.
+
+    weights: mass fractions in the order of ``propellant.ingredients``, overriding the
+    propellant's own (reuses one CEA mixture across compositions, e.g. a hybrid's O/F).
+    """
     prop = get(propellant)
     cea, reac, solver, sol, w = _mixture(prop)
+    if weights is not None:
+        w = np.asarray(weights, float) / np.sum(weights)
     hc = reac.calc_property(cea.ENTHALPY, w, np.full(len(w), 298.15)) / cea.R
     pc_bar = chamber_pressure / _BAR
     solver.solve(sol, w, pc_bar, [max(pc_bar * _BAR / _P_SL, 1.01)],
