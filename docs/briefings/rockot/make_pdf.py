@@ -17,7 +17,15 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    Image,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build"
@@ -38,7 +46,7 @@ INK = colors.black
 
 
 def style(name, **kw):
-    base = dict(fontName="Serif", fontSize=10, leading=13.5, textColor=INK)
+    base = {"fontName": "Serif", "fontSize": 10, "leading": 13.5, "textColor": INK}
     return ParagraphStyle(name, **{**base, **kw})
 
 
