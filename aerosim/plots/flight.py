@@ -59,7 +59,7 @@ def _events(res, names=None, until=None):
 
 
 def ascent_overview(res, reference: dict | None = None, until: float | None = None,
-                    title: str = "Ascent"):
+                    title: str | None = "Ascent"):
     """2 x 3 small multiples vs time: altitude, relative speed, flight-path angle,
     dynamic pressure, axial acceleration, mass. ``reference`` = {event: {"time", "altitude",
     "speed", "fpa", "q"}} adds published waypoints as ringed points (legend shown)."""
@@ -91,8 +91,9 @@ def ascent_overview(res, reference: dict | None = None, until: float | None = No
         ax.set_xlabel("Time from lift-off (s)")
     if reference:
         figure_legend(fig, axes[0, 1])
-    fig.suptitle(title, x=0.01, ha="left", fontsize=11, fontweight="bold",
-                 color=tokens()["ink"])
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", fontsize=11, fontweight="bold",
+                     color=tokens()["ink"])
     return fig
 
 

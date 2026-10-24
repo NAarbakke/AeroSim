@@ -1,4 +1,4 @@
-"""PDF edition of the Rockot briefing (same content and numbers as the deck).
+"""Technical-note PDF of the Rockot ascent model (performance figures only).
 
     python docs/briefings/rockot/make_briefing.py   # data.json + figures
     python docs/briefings/rockot/make_pdf.py        # -> Rockot_Ascent_Briefing.pdf
@@ -7,55 +7,52 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (
-    Image,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build"
 FIG = BUILD / "figures"
 OUT = HERE / "Rockot_Ascent_Briefing.pdf"
+G0 = 9.80665
 
 FONTS = Path("C:/Windows/Fonts")
-for name, file in (("Body", "calibri.ttf"), ("Body-Bold", "calibrib.ttf"),
-                   ("Head", "arialbd.ttf")):
+pdfmetrics.registerFont(TTFont("Serif", str(FONTS / "cambria.ttc"), subfontIndex=0))
+for name, file in (("Serif-Bold", "cambriab.ttf"), ("Serif-Italic", "cambriai.ttf"),
+                   ("Serif-BoldItalic", "cambriaz.ttf")):
     pdfmetrics.registerFont(TTFont(name, str(FONTS / file)))
-pdfmetrics.registerFontFamily("Body", normal="Body", bold="Body-Bold")
+pdfmetrics.registerFontFamily("Serif", normal="Serif", bold="Serif-Bold", italic="Serif-Italic",
+                              boldItalic="Serif-BoldItalic")
 
-NAVY, ICE, INK2, MUTED, GRID = (colors.HexColor(h) for h in
-                                ("#14213D", "#EEF2F7", "#52514E", "#898781", "#E1E0D9"))
-W = A4[0] - 36 * mm
+W = A4[0] - 50 * mm
+INK = colors.black
+
+
+def style(name, **kw):
+    base = dict(fontName="Serif", fontSize=10, leading=13.5, textColor=INK)
+    return ParagraphStyle(name, **{**base, **kw})
+
 
 S = {
-    "title": ParagraphStyle("title", fontName="Head", fontSize=24, leading=29, textColor=colors.white),
-    "sub": ParagraphStyle("sub", fontName="Body", fontSize=12.5, leading=17, textColor=ICE),
-    "h1": ParagraphStyle("h1", fontName="Head", fontSize=15, leading=19, textColor=NAVY,
-                         spaceBefore=10, spaceAfter=6, keepWithNext=1),
-    "body": ParagraphStyle("body", fontName="Body", fontSize=10.5, leading=14.5, alignment=TA_LEFT,
-                           spaceAfter=4),
-    "bullet": ParagraphStyle("bullet", fontName="Body", fontSize=10.5, leading=14.5, leftIndent=12,
-                             bulletIndent=2, spaceAfter=3),
-    "cap": ParagraphStyle("cap", fontName="Body", fontSize=8.5, leading=11, textColor=MUTED,
-                          spaceAfter=6),
-    "statv": ParagraphStyle("statv", fontName="Head", fontSize=19, leading=23, textColor=NAVY),
-    "statl": ParagraphStyle("statl", fontName="Body", fontSize=9.5, leading=12),
-    "statn": ParagraphStyle("statn", fontName="Body", fontSize=8, leading=10, textColor=MUTED),
-    "cell": ParagraphStyle("cell", fontName="Body", fontSize=9.5, leading=12, textColor=INK2),
-    "cellb": ParagraphStyle("cellb", fontName="Body-Bold", fontSize=9.5, leading=12, textColor=NAVY),
+    "title": style("title", fontName="Serif-Bold", fontSize=15, leading=19, alignment=TA_CENTER),
+    "byline": style("byline", fontSize=10, alignment=TA_CENTER, spaceBefore=4, spaceAfter=14),
+    "abs": style("abs", fontSize=9.5, leading=12.5, alignment=TA_JUSTIFY, leftIndent=24, rightIndent=24),
+    "h1": style("h1", fontName="Serif-Bold", fontSize=11, spaceBefore=12, spaceAfter=4, keepWithNext=1),
+    "body": style("body", alignment=TA_JUSTIFY, spaceAfter=6),
+    "cap": style("cap", fontSize=9, leading=11.5, alignment=TA_JUSTIFY, spaceBefore=3, spaceAfter=8),
+    "cell": style("cell", fontSize=9, leading=11),
+    "cellr": style("cellr", fontSize=9, leading=11, alignment=2),
+    "cellc": style("cellc", fontSize=9, leading=11, alignment=TA_CENTER),
+    "ref": style("ref", fontSize=9, leading=11.5, leftIndent=16, firstLineIndent=-16, spaceAfter=2),
 }
 
 
@@ -64,241 +61,163 @@ def n0(v):
 
 
 def n1(v):
-    return f"{v:,.1f}"
+    return f"{v:,.1f}".replace("-", "−")
 
 
-def bullets(items):
-    return [Paragraph(t, S["bullet"], bulletText="•") for t in items]
+def table(rows, widths, caption, head=1, spans=()):
+    """Three-rule (booktabs) table, caption above; first column left, the rest right.
+    ``spans`` = column ranges (c0, c1) of the first header row merged and centred."""
+    def cell(i, j, c):
+        if i == 0 and any(a <= j <= b for a, b in spans):
+            return Paragraph(str(c), S["cellc"])
+        return Paragraph(str(c), S["cell"] if j == 0 else S["cellr"])
+    data = [[cell(i, j, c) for j, c in enumerate(r)] for i, r in enumerate(rows)]
+    t = Table(data, colWidths=widths, hAlign="CENTER")
+    t.setStyle(TableStyle([
+        ("LINEABOVE", (0, 0), (-1, 0), 1.0, INK), ("LINEBELOW", (0, head - 1), (-1, head - 1), 0.5, INK),
+        ("LINEBELOW", (0, -1), (-1, -1), 1.0, INK), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        *[("SPAN", (a, 0), (b, 0)) for a, b in spans],
+        *[("LINEBELOW", (a, 0), (b, 0), 0.5, INK) for a, b in spans]]))
+    return KeepTogether([Paragraph(caption, S["cap"]), t, Spacer(1, 8)])
 
 
-def figure(name, width=W, caption=None):
+def figure(name, caption, width=W, heading=None):
     from PIL import Image as PILImage
     w, h = PILImage.open(FIG / name).size
-    out = [Image(str(FIG / name), width=width, height=width * h / w)]
-    if caption:
-        out.append(Paragraph(caption, S["cap"]))
-    return out
-
-
-def table(rows, widths, header=True, align_right_from=None):
-    data = [[Paragraph(str(c), S["cellb"] if (header and i == 0) else S["cell"]) for c in r]
-            for i, r in enumerate(rows)]
-    t = Table(data, colWidths=widths, hAlign="LEFT")
-    style = [("GRID", (0, 0), (-1, -1), 0.5, GRID), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-             ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
-    if header:
-        style.append(("BACKGROUND", (0, 0), (-1, 0), ICE))
-    t.setStyle(TableStyle(style))
-    return t
+    return KeepTogether([*([heading] if heading else []),
+                         Image(str(FIG / name), width=width, height=width * h / w),
+                         Paragraph(caption, S["cap"])])
 
 
 def on_page(canvas, doc):
     canvas.saveState()
-    canvas.setFont("Body", 8)
-    canvas.setFillColor(MUTED)
-    canvas.drawString(18 * mm, 10 * mm, "Rockot / Breeze-KM ascent model  |  AeroSim  |  "
-                      "data: Rockot User's Guide EHB0003 Iss. 5 (2011)")
-    canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, str(doc.page))
+    canvas.setFont("Serif", 9)
+    canvas.drawCentredString(A4[0] / 2, 12 * mm, str(doc.page))
     canvas.restoreState()
 
 
+def ideal_dv(D):
+    """Ideal vacuum delta-v per stage; fairing carried to stage-2 burnout."""
+    v, st = D["vehicle"], D["vehicle"]["stages"]
+    m0 = v["liftoff_mass"]
+    out = []
+    for i, s in enumerate(st):
+        mf = m0 - s["propellant"]
+        out.append(s["isp_vac"] * G0 * math.log(m0 / mf))
+        m0 = mf - s["dry"] - (v["fairing"] if i == 1 else 0)
+    return out
+
+
 def build():
-    D = json.loads((BUILD / "data.json").read_text())
-    ev = D["events"]
+    D = json.loads((BUILD / "data.json").read_text(encoding="utf-8"))
+    ev, st, v = D["events"], D["vehicle"]["stages"], D["vehicle"]
     cmp = {r["event"]: r for r in D["comparison"]}
-    s1, s2, b1 = cmp["Stage 1_burnout"], cmp["Stage 2_burnout"], cmp["Breeze-KM_burn1_end"]
     tr, fin = D["orbits"]["transfer"], D["orbits"]["final"]
-    st = D["vehicle"]["stages"]
-    pct = lambda m, g: f"{100 * (m / g - 1):+.1f} %"
+    pa = D["peak_accel_g"]
+    dv = ideal_dv(D)
+    f_sl = st[0]["propellant"] / st[0]["burn_time"] * st[0]["isp_sl"] * G0
+    tw = f_sl / (v["liftoff_mass"] * G0)
+    s1, s2 = cmp["Stage 1_burnout"], cmp["Stage 2_burnout"]
+    err = lambda r: 100 * (r["model"]["speed"] / r["guide"]["speed"] - 1)
     story = []
 
-    # cover band
-    cover = Table([[Paragraph("Rockot / Breeze-KM from Plesetsk", S["title"])],
-                   [Paragraph("Ascent trajectory model of the User's Guide reference mission: "
-                              "650 km circular orbit, 86.58° inclination  |  AeroSim  |  October 2026",
-                              S["sub"])]], colWidths=[W])
-    cover.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), NAVY),
-                               ("LEFTPADDING", (0, 0), (-1, -1), 12),
-                               ("TOPPADDING", (0, 0), (0, 0), 14),
-                               ("BOTTOMPADDING", (0, -1), (-1, -1), 14)]))
-    story += [cover, Spacer(1, 10)]
-
-    # 1. bottom line
-    story.append(Paragraph("The model flies the guide's reference mission to orbit", S["h1"]))
-    q_g = D["comparison"][0]["guide"]
-    stats = [
-        (f"{n0(D['vehicle']['payload'])} kg", "payload to 650 km circular",
-         "User's Guide fig. 3-1, i = 86.4°"),
-        (f"{n1(D['max_q']['q_kpa'])} kPa", f"max dynamic pressure at {n0(D['max_q']['time'])} s",
-         f"guide: {q_g['q'] / 1e3} kPa at {q_g['time']} s"),
-        (f"{n0(ev['Breeze-KM_burn1_end'])} s", "lift-off to transfer orbit",
-         "guide: 882 s (end of Breeze-KM burn 1)"),
-    ]
-    cells = [[[Paragraph(v, S["statv"]), Paragraph(lbl, S["statl"]), Paragraph(nt, S["statn"])]
-              for v, lbl, nt in stats]]
-    st_t = Table(cells, colWidths=[W / 3 - 2] * 3)
-    st_t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), ICE),
-                              ("LINEAFTER", (0, 0), (1, 0), 3, colors.white),
-                              ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                              ("LEFTPADDING", (0, 0), (-1, -1), 10)]))
-    story += [st_t, Spacer(1, 8)]
-    story += bullets([
-        (f"Stage 1 and 2 burnout speeds within {pct(s1['model']['speed'], s1['guide']['speed'])} and "
-        f"{pct(s2['model']['speed'], s2['guide']['speed'])} of the guide's trajectory (fig. 3-6)."),
-        (f"Breeze-KM burn 1 reaches a {n0(tr['perigee_km'])} x {n0(tr['apogee_km'])} km transfer orbit "
-        f"(guide: 160 x 635 km); burn 2 circularises at {n0(fin['perigee_km'])} x "
-        f"{n0(fin['apogee_km'])} km, i = {fin['inclination']:.2f}°."),
-        ("Stage 1/2 propellant masses are not published; they were fitted to the guide's waypoints. "
-        f"The fitted vehicle weighs {n1(D['vehicle']['liftoff_mass'] / 1000)} t at lift-off against "
-        "the guide's 107 t."),
-    ])
-
-    # 2. vehicle
-    story.append(Paragraph("Three hypergolic stages; the top one restarts", S["h1"]))
-    rows = [["", "Stage 1", "Stage 2", "Breeze-KM"],
-            ["Engines", "3 x RD-0233 + RD-0234", "RD-0235 + 4 RD-0236", "S5.98M, 20 kN"],
-            ["Thrust, vacuum", *[f"{n0(x['thrust_vac_kN'])} kN" for x in st]],
-            ["Isp, vacuum", *[f"{n1(x['isp_vac'])} s" for x in st]],
-            ["Burn time", f"{n0(st[0]['burn_time'])} s", f"{n0(st[1]['burn_time'])} s", "up to 1,000 s"],
-            ["Propellant", *[f"{n0(x['propellant'])} kg" for x in st]],
-            ["Dry mass", *[f"{n0(x['dry'])} kg" for x in st]]]
-    story.append(table(rows, [W * 0.22, W * 0.26, W * 0.26, W * 0.26]))
-    story.append(Paragraph(
-        "Isp, burn times and Breeze-KM data: User's Guide tables 2-2 to 2-8. Stage 1/2 propellant is "
-        "fitted (section 7), so their thrust follows from it at the guide's burn time; the guide quotes "
-        "2,070 kN and 256 kN vacuum. Dry masses: Encyclopedia Astronautica.", S["cap"]))
-
-    # 3. site
     story += [
-        Paragraph("Launch from Plesetsk, northbound into a near-polar orbit", S["h1"]),
-        *bullets([
-            (f"Plesetsk Cosmodrome, {D['site']['lat']}° N {D['site']['lon']}° E, about 200 km south "
-            "of Archangel (guide §3.2). Allowed azimuths 4.8° (i = 86.4°) to 76.2° (i = 63.2°); "
-            "341.5° for sun-synchronous orbits."),
-            (f"Target plane i = {D['program']['target_inclination']}°: the model launches along the "
-            "rotation-corrected azimuth and yaws out residual out-of-plane velocity."),
-        ]),
-        *figure("ground_track.png", W * 0.78, "AeroSim model output (aerosim.plots.ground_track)."),
+        Paragraph("Ascent Performance of the Rockot/Breeze-KM Launch Vehicle from Plesetsk", S["title"]),
+        Paragraph("AeroSim technical note &nbsp;·&nbsp; October 2026", S["byline"]),
+        Paragraph(
+            "<b>Abstract.</b> A three-degree-of-freedom ascent model of Rockot/Breeze-KM is calibrated "
+            f"against the reference mission of the User's Guide [1]: {n0(v['payload'])} kg to a 650 km "
+            f"circular orbit at 86.58°. Stage-1 and stage-2 burnout speeds agree within "
+            f"{abs(err(s1)):.1f} % and {abs(err(s2)):.1f} %. Maximum dynamic pressure is "
+            f"{n1(D['max_q']['q_kpa'])} kPa and peak axial load {n1(pa['Stage 1'])} g. The upper stage "
+            f"inserts into a {n0(fin['perigee_km'])} × {n0(fin['apogee_km'])} km orbit at "
+            f"{fin['inclination']:.2f}° with {n0(D['propellant_left'])} kg of propellant remaining.",
+            S["abs"]),
     ]
 
-    # 4. timeline
-    story.append(Paragraph("About fifteen minutes from lift-off to the transfer orbit", S["h1"]))
-    tl = [("Lift-off", 0, 0), ("Max q", ev["max_q"], 50), ("Stage 1 separation", ev["Stage 1_burnout"], 122),
-          ("Fairing jettison", ev["fairing_jettison"], 173), ("Stage 2 separation", ev["Stage 2_burnout"], 305),
-          ("End of Breeze-KM burn 1", ev["Breeze-KM_burn1_end"], 882),
-          ("Breeze-KM burn 2 start", ev["Breeze-KM_burn2_start"], 4360)]
-    story.append(table([["Event", "Model (s)", "Guide (s)"]] +
-                       [[e, n0(m), f"{g:,}"] for e, m, g in tl], [W * 0.5, W * 0.25, W * 0.25]))
-    story.append(Paragraph(
-        f"Burn 2 lasts {n0(ev['Breeze-KM_burn2_end'] - ev['Breeze-KM_burn2_start'])} s in the model "
-        "(guide: about 39 s); the guide deploys the spacecraft at 5,861 s.", S["cap"]))
+    # 1. vehicle
+    story += [Paragraph("1&nbsp;&nbsp;Vehicle", S["h1"]), Paragraph(
+        "Engine, specific impulse and burn-time data are from [1], dry masses from [2]. Stage-1 and "
+        "stage-2 propellant loads are fitted (Section 4); thrust follows from load, burn time and "
+        f"specific impulse. Lift-off mass is {n1(v['liftoff_mass'] / 1e3)} t and lift-off "
+        f"thrust-to-weight ratio {tw:.2f}.", S["body"])]
+    dash = "–"
+    story.append(table([
+        ["", "Stage 1", "Stage 2", "Breeze-KM"],
+        ["Engines", "RD-0233 ×3, RD-0234", "RD-0235, RD-0236 ×4", "S5.98M"],
+        ["Thrust, vacuum (kN)", *[n0(s["thrust_vac_kN"]) for s in st]],
+        ["<i>I</i><sub>sp</sub>, vacuum (s)", *[n1(s["isp_vac"]) for s in st]],
+        ["<i>I</i><sub>sp</sub>, sea level (s)", *[n1(s["isp_sl"]) if s["isp_sl"] else dash for s in st]],
+        ["Burn time (s)", n0(st[0]["burn_time"]), n0(st[1]["burn_time"]), f"≤ {n0(st[2]['burn_time'])}"],
+        ["Propellant (kg)", *[n0(s["propellant"]) for s in st]],
+        ["Dry mass (kg)", *[n0(s["dry"]) for s in st]],
+        ["Ideal Δ<i>v</i>, vacuum (m/s)", *[n0(x) for x in dv]],
+    ], [W * 0.31, W * 0.23, W * 0.23, W * 0.23],
+        f"<b>Table 1.</b> Stage parameters. Ideal Δ<i>v</i> totals {n0(sum(dv))} m/s "
+        "(fairing carried to stage-2 burnout)."))
 
-    # 5. profile
-    pa = D["peak_accel_g"]
-    story.append(Paragraph("Ascent profile tracks the guide's published waypoints", S["h1"]))
-    story += figure("ascent_overview.png", W, "Blue line: AeroSim model. Orange points: User's Guide "
-                    "fig. 3-6 waypoints. Grey lines: max q, stage 1 separation, fairing jettison, "
-                    "stage 2 separation.")
-    story += bullets([
-        "Max q, both stagings and the end of burn 1 sit on or near the guide's points.",
-        (f"Peak axial acceleration {n1(pa['Stage 1'])} g at stage 1 burnout; guide table 5-1 gives "
-        f"6.2-8.0 g. Stage 2 peaks at {n1(pa['Stage 2'])} g (guide: up to 3.0 g)."),
-    ])
+    # 2. performance
+    q_g = cmp["max_q"]["guide"]
+    story += [Paragraph("2&nbsp;&nbsp;Mission performance", S["h1"]), table([
+        ["", "Model", "User's Guide [1]"],
+        ["Payload (kg)", n0(v["payload"]), "1,570"],
+        ["Lift-off mass (t)", n1(v["liftoff_mass"] / 1e3), "107"],
+        ["Max. dynamic pressure (kPa)", f"{n1(D['max_q']['q_kpa'])} at {n0(D['max_q']['time'])} s",
+         f"{n1(q_g['q'] / 1e3)} at {q_g['time']} s"],
+        ["Peak axial load, stage 1 (g)", n1(pa["Stage 1"]), "6.2–8.0"],
+        ["Peak axial load, stage 2 (g)", n1(pa["Stage 2"]), "≤ 3.0"],
+        ["Peak axial load, Breeze-KM (g)", f"{max(pa['Breeze-KM burn 1'], pa['Breeze-KM burn 2']):.2f}", dash],
+        ["Transfer orbit (km)", f"{n0(tr['perigee_km'])} × {n0(tr['apogee_km'])}", "160 × 635"],
+        ["Final orbit (km)", f"{n0(fin['perigee_km'])} × {n0(fin['apogee_km'])}", "650 × 650"],
+        ["Inclination (deg)", f"{fin['inclination']:.2f}", "86.58"],
+        ["Lift-off to transfer orbit (s)", n0(ev["Breeze-KM_burn1_end"]), "882"],
+        ["Breeze-KM propellant remaining (kg)", n0(D["propellant_left"]), dash],
+    ], [W * 0.46, W * 0.27, W * 0.27], "<b>Table 2.</b> Reference mission, Plesetsk "
+        f"({D['site']['lat']}° N, {D['site']['lon']}° E).")]
 
-    # 6. comparison
-    story.append(Paragraph("Model against the guide at each event", S["h1"]))
-    story += figure("comparison.png", W)
-    labels = {"max_q": "Max q", "Stage 1_burnout": "S1 sep", "fairing_jettison": "Fairing",
-              "Stage 2_burnout": "S2 sep", "Breeze-KM_burn1_end": "Burn 1 end"}
-    rows = [["Event", "Time model / guide (s)", "Altitude (km)", "Speed (m/s)", "Flight-path angle (deg)"]]
+    # 3. trajectory
+    story += [figure(
+        "report_ascent.png", "<b>Figure 1.</b> Ascent to the end of Breeze-KM burn 1. Line: model; "
+        "points: waypoints of [1, fig. 3-6]. Vertical lines mark max. <i>q</i>, stage-1 separation, "
+        "fairing jettison and stage-2 separation.",
+        heading=Paragraph("3&nbsp;&nbsp;Trajectory", S["h1"]))]
+    labels = {"max_q": "Max. <i>q</i>", "Stage 1_burnout": "Stage-1 sep.",
+              "fairing_jettison": "Fairing jettison", "Stage 2_burnout": "Stage-2 sep.",
+              "Breeze-KM_burn1_end": "Burn-1 cutoff"}
+    rows = [["Event", "<i>t</i> (s)", "", "<i>h</i> (km)", "", "<i>v</i> (m/s)", "", "γ (deg)", ""],
+            ["", *["Model", "Guide"] * 4]]
     for r in D["comparison"]:
         m, g = r["model"], r["guide"]
-        rows.append([labels[r["event"]], f"{n0(m['time'])} / {n0(g['time'])}",
-                     f"{n1(m['altitude'] / 1e3)} / {n1(g['altitude'] / 1e3)}",
-                     f"{n0(m['speed'])} / {n0(g['speed'])}", f"{n1(m['fpa'])} / {n1(g['fpa'])}"])
-    story.append(table(rows, [W * 0.16, W * 0.21, W * 0.21, W * 0.21, W * 0.21]))
+        rows.append([labels[r["event"]], n0(m["time"]), n0(g["time"]), n1(m["altitude"] / 1e3),
+                     n1(g["altitude"] / 1e3), n0(m["speed"]), n0(g["speed"]), n1(m["fpa"]), n1(g["fpa"])])
+    story.append(table(rows, [W * 0.2] + [W * 0.1] * 8,
+                       "<b>Table 3.</b> State at flight events: model against [1, fig. 3-6]. "
+                       "<i>v</i>: Earth-relative speed; γ: flight-path angle.", head=2,
+                       spans=((1, 2), (3, 4), (5, 6), (7, 8))))
 
-    # 7. insertion
-    story.append(Paragraph("Breeze-KM burns twice to reach the 650 km class orbit", S["h1"]))
-    story += figure("trajectory.png", W)
-    story.append(table([["", "Perigee", "Apogee", "Inclination"],
-                        ["Transfer orbit, model", f"{n0(tr['perigee_km'])} km", f"{n0(tr['apogee_km'])} km",
-                         f"{tr['inclination']:.2f}°"],
-                        ["Transfer orbit, guide", "160 km", "635 km", "86.58°"],
-                        ["Final orbit, model", f"{n0(fin['perigee_km'])} km", f"{n0(fin['apogee_km'])} km",
-                         f"{fin['inclination']:.2f}°"],
-                        ["Deployment orbit, guide", "650 km", "650 km", "86.58°"]],
-                       [W * 0.4, W * 0.2, W * 0.2, W * 0.2]))
-    story.append(Spacer(1, 6))
-    story += bullets([
-        ("Burn 1 is closed-loop: pitch holds a commanded climb rate while the 20 kN engine builds "
-        "speed. Burn 2 fires at apogee, prograde, and stops when perigee reaches the transfer apogee."),
-        (f"Burn 1 runs {n0(ev['Breeze-KM_burn1_end'] - ev['Breeze-KM_burn1_start'])} s against the "
-        f"guide's 577 s and ends lower ({n0(b1['model']['altitude'] / 1e3)} km vs 251 km): the model's "
-        f"steering is less efficient. Breeze-KM propellant left: {n0(D['propellant_left'])} kg of "
-        f"{n0(st[2]['propellant'])} kg."),
-        ("The guide's own figure is not fully consistent: its burn-2 altitude reads 665.6 km, its "
-        "deployment orbit 650 km, and its final-orbit box (499 x 506 km, 88.999°) appears carried over "
-        "from another mission. The model targets the 635.3 km transfer apogee and circularises there."),
-    ])
+    # 4. calibration and limitations
+    story += [Paragraph("4&nbsp;&nbsp;Calibration and limitations", S["h1"]), Paragraph(
+        "Stage-1 and stage-2 propellant loads, pitch-kick angle, stage-2 pitch rate and the Breeze-KM "
+        "climb-rate law were fitted by least squares to ten waypoints of [1]; eight are met within "
+        "tolerance. The two misses, lift-off mass "
+        f"(+{100 * (v['liftoff_mass'] / 107e3 - 1):.1f} %) and burn-1 cutoff "
+        f"(+{n0(ev['Breeze-KM_burn1_end'] - 882)} s), indicate that the model needs more energy than "
+        "the flight vehicle, consistent with its simplified insertion steering and generic drag curve. "
+        "The model is a point mass with constant thrust per stage, J<sub>2</sub> gravity and an "
+        "exponential upper atmosphere [3].", S["body"])]
 
-    # 8. calibration
-    story.append(Paragraph("Two masses and five steering settings were fitted", S["h1"]))
-    cal = D.get("calibration") or {"stage_propellant": [x["propellant"] for x in st], "residuals": []}
-    story.append(table([
-        ["Quantity", "Source value", "Used in model", "Basis"],
-        ["Stage 1 propellant", "71,455 kg (Astronautix)", f"{n0(cal['stage_propellant'][0])} kg", "fitted"],
-        ["Stage 2 propellant", "10,710 kg (Astronautix)", f"{n0(cal['stage_propellant'][1])} kg", "fitted"],
-        ["Breeze-KM propellant / dry", "4,975 / 1,320 kg", "4,975 / 1,320 kg", "User's Guide t. 2-8"],
-        ["Payload", "1,570 kg", f"{n0(D['vehicle']['payload'])} kg", "User's Guide fig. 3-1"],
-        ["Fairing", "not published", f"{n0(D['vehicle']['fairing'])} kg", "estimate"],
-        ["Lift-off mass", "107 t", f"{n1(D['vehicle']['liftoff_mass'] / 1000)} t", "result"],
-    ], [W * 0.28, W * 0.28, W * 0.2, W * 0.24]))
-    story.append(Spacer(1, 6))
-    story += bullets([
-        ("The guide gives engines, burn times, Breeze-KM masses and lift-off mass, but not stage 1/2 "
-        "propellant. Published stage masses leave stage 1 about 300 m/s slow at burnout against the "
-        "guide's own trajectory."),
-        ("A least-squares fit adjusts both propellant loads plus pitch kick, stage 2 pitch and "
-        "Breeze-KM climb rate to ten guide targets. Mass flow is propellant / burn time at constant "
-        "thrust, so thrust scales with the fitted load."),
-    ])
-    if cal["residuals"]:
-        met = sum(abs(r) <= 1.5 for r in cal["residuals"])
-        story.append(Paragraph(
-            f"<b>{met} of {len(cal['residuals'])} targets met</b> within 1.5 tolerance units (25 m/s "
-            "speed, 2-4 km altitude, 1° angle, 3 km perigee). Missed: Breeze-KM burn 1 ends "
-            f"{n0(ev['Breeze-KM_burn1_end'] - 882)} s later than the guide, and the fitted vehicle is "
-            f"{n1(D['vehicle']['liftoff_mass'] / 1000 - 107)} t heavier at lift-off. Both point the same "
-            "way: the model needs more energy than the real vehicle to fly the same trajectory, most "
-            "likely from its simple insertion steering and generic drag.", S["body"]))
+    story += [Paragraph("References", S["h1"]), *[Paragraph(t, S["ref"]) for t in (
+        "[1] Eurockot Launch Services, <i>Rockot User's Guide</i>, EHB0003, Issue 5, Rev. 0, 2011.",
+        "[2] M. Wade, “Rokot,” <i>Encyclopedia Astronautica</i>, astronautix.com.",
+        "[3] D. A. Vallado, <i>Fundamentals of Astrodynamics and Applications</i>, table 8-4.",
+    )]]
 
-    # 9. limits + next steps, sources
-    story.append(Paragraph("Limits and next steps", S["h1"]))
-    lim = table([["What the model leaves out", "Next steps"],
-                 ["3-DOF point mass: no attitude dynamics or control-loop limits",
-                  "Stage drop zones and impact points (guide: 990-1,100 km for stage 1)"],
-                 ["Generic slender-body drag curve, not Rockot wind-tunnel data",
-                  "Payload-vs-orbit sweep to reproduce guide fig. 3-1"],
-                 ["Constant thrust per stage; no throttling, tail-off or vernier phases",
-                  "SSO mission: 341.5° azimuth, parking orbit and plane change"],
-                 ["Gravity to J2 only; exponential upper atmosphere",
-                  "Monte Carlo on thrust, Isp and winds for dispersion"]], [W / 2, W / 2])
-    story.append(lim)
-    story.append(Paragraph("Sources and reproduction", S["h1"]))
-    story += bullets([
-        ("Eurockot Launch Services, <i>Rockot User's Guide</i>, EHB0003, Issue 5, Revision 0, August "
-        "2011: tables 2-1 to 2-8 and 5-1, section 3, figures 3-1 and 3-6. Copy in docs/references/rockot/."),
-        "Encyclopedia Astronautica, Rokot (astronautix.com/r/rokot.html): stage gross and empty masses.",
-        ("D. Vallado, <i>Fundamentals of Astrodynamics and Applications</i>, table 8-4: upper-atmosphere "
-        "density."),
-        ("Model: configs/examples/rocket/orbital/rockot.yaml; calibration: examples/rockot_ascent.py; "
-        "this briefing: docs/briefings/rockot/make_briefing.py then make_pdf.py and build/deck.js."),
-    ])
-
-    doc = SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-                            topMargin=16 * mm, bottomMargin=18 * mm,
-                            title="Rockot / Breeze-KM ascent from Plesetsk", author="AeroSim")
+    doc = SimpleDocTemplate(str(OUT), pagesize=A4, leftMargin=25 * mm, rightMargin=25 * mm,
+                            topMargin=22 * mm, bottomMargin=22 * mm,
+                            title="Ascent Performance of the Rockot/Breeze-KM Launch Vehicle",
+                            author="AeroSim")
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
     print("wrote", OUT)
 

@@ -63,6 +63,8 @@ def main():
     plots.ascent_overview(res, reference=ref, until=950,
                           title="Rockot ascent: AeroSim model vs User's Guide (Fig. 3-6)"
                           ).savefig(FIG / "ascent_overview.png")
+    plots.ascent_overview(res, reference=ref, until=950, title=None
+                          ).savefig(FIG / "report_ascent.png")      # untitled, for the PDF note
     plots.ascent_trajectory(res, until=res.events["Breeze-KM_burn1_end"],
                             title="Altitude vs downrange, lift-off to end of Breeze-KM burn 1"
                             ).savefig(FIG / "trajectory.png")
