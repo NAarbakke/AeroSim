@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -31,7 +30,6 @@ HERE = Path(__file__).resolve().parent
 BUILD = HERE / "build"
 FIG = BUILD / "figures"
 OUT = HERE / "Rockot_Ascent_Briefing.pdf"
-G0 = 9.80665
 
 FONTS = Path("C:/Windows/Fonts")
 pdfmetrics.registerFont(TTFont("Serif", str(FONTS / "cambria.ttc"), subfontIndex=0))
@@ -106,27 +104,13 @@ def on_page(canvas, doc):
     canvas.restoreState()
 
 
-def ideal_dv(D):
-    """Ideal vacuum delta-v per stage; fairing carried to stage-2 burnout."""
-    v, st = D["vehicle"], D["vehicle"]["stages"]
-    m0 = v["liftoff_mass"]
-    out = []
-    for i, s in enumerate(st):
-        mf = m0 - s["propellant"]
-        out.append(s["isp_vac"] * G0 * math.log(m0 / mf))
-        m0 = mf - s["dry"] - (v["fairing"] if i == 1 else 0)
-    return out
-
-
 def build():
     D = json.loads((BUILD / "data.json").read_text(encoding="utf-8"))
     ev, st, v = D["events"], D["vehicle"]["stages"], D["vehicle"]
     cmp = {r["event"]: r for r in D["comparison"]}
     tr, fin = D["orbits"]["transfer"], D["orbits"]["final"]
     pa = D["peak_accel_g"]
-    dv = ideal_dv(D)
-    f_sl = st[0]["propellant"] / st[0]["burn_time"] * st[0]["isp_sl"] * G0
-    tw = f_sl / (v["liftoff_mass"] * G0)
+    dv, tw = v["ideal_dv"], v["liftoff_tw"]
     s1, s2 = cmp["Stage 1_burnout"], cmp["Stage 2_burnout"]
     err = lambda r: 100 * (r["model"]["speed"] / r["guide"]["speed"] - 1)
     story = []
