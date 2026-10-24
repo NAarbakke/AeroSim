@@ -1,0 +1,79 @@
+# Rockot / Breeze-KM from Plesetsk, built from physics rather than fitted to the reference
+# trajectory. Engines: NASA CEA chemistry at published chamber pressure and mixture ratio, with
+# textbook losses (aerosim.propulsion.liquid.design). Propellant = engine mass flow x published
+# burn time. Drag: component build-up from the vehicle geometry (aerosim.flight.aero).
+# Steering: chosen by examples/rockot_first_principles.py to maximise the propellant left in
+# the final orbit; the User's Guide trajectory (fig. 3-6) is used only to check the result.
+#
+# Sources:  [UG x-y] Rockot User's Guide EHB0003 Iss. 5 (2011) table/figure,
+#           [WP] Wikipedia engine pages (RD-0233, RD-0216/RD-0235, S5.98M),
+#           [EA] Encyclopedia Astronautica,  [assumed] engineering assumption,
+#           [opt] set by the trajectory optimiser.
+kind: launch_vehicle
+
+vehicle:
+  name: Rockot / Breeze-KM (first principles)
+  diameter: 2.5                       # [UG 2-1]
+  payload_mass: 1570                  # [UG fig 3-1] 650 km circular
+  fairing_mass: 700                   # [assumed] 2.62 x 6.7 m composite fairing
+  adapter_mass: 50                    # [assumed]
+  drag_curve:                         # build-up from geometry
+    length: 29.15                     # [UG 2-1]
+    nose_length: 3.7                  # [UG fig 2-1] forward fairing section
+    base_exposed: 0.5                 # [assumed] base area outside the nozzles and plume
+  stages:
+    - name: Stage 1
+      dry_mass: 5695                  # [EA]
+      burn_time: 121                  # [UG 2-2]
+      engines:
+        - name: RD-0233 / RD-0234
+          count: 4                    # [UG 2-2] 3 x RD-0233 + 1 x RD-0234
+          thrust_vac: 517.5e+3        # [UG 2-2] 2070 kN for the stage
+          oxidizer: N2O4
+          fuel: UDMH
+          chamber_pressure: 20.5e+6   # [WP]
+          mixture_ratio: 2.6          # [assumed] oxidiser-rich staged combustion, N2O4/UDMH
+          isp_split: [310, 285]       # [UG 2-2] vacuum / sea-level Isp -> nozzle exit area
+    - name: Stage 2
+      dry_mass: 1485                  # [EA]
+      burn_time: 183                  # [UG 2-3]
+      engines:
+        - name: RD-0235
+          thrust_vac: 240.0e+3        # [UG 2-3]
+          oxidizer: N2O4
+          fuel: UDMH
+          chamber_pressure: 17.5e+6   # [WP]
+          mixture_ratio: 2.6          # [assumed]
+          expansion_ratio: 80         # [assumed] vacuum-optimised extension
+        - name: RD-0236 verniers
+          thrust_vac: 15.76e+3        # [UG 2-4]
+          isp_vac: 293                # [UG 2-4] (burns 200 s; taken as 183 s here)
+    - name: Breeze-KM
+      dry_mass: 1320                  # [UG 2-8]
+      propellant_mass: 4975           # [UG 2-8] burn time follows from the engine mass flow
+      max_burns: 8                    # [UG 2-5]
+      engines:
+        - name: S5.98M
+          thrust_vac: 19.62e+3        # [WP] (UG 2-5: 20 kN)
+          oxidizer: N2O4
+          fuel: UDMH
+          chamber_pressure: 9.8e+6    # [WP]
+          mixture_ratio: 2.0          # [WP]
+          expansion_ratio: 150        # [assumed]
+
+flight:
+  backend: orbital_ascent
+  latitude: 62.8                      # [UG 3.2] Plesetsk
+  longitude: 40.3
+  program:
+    target_inclination: 86.583        # [UG fig 3-6]
+    vertical_time: 6
+    kick_angle: 18.88                 # [opt] examples/rockot_first_principles.py
+    kick_time: 10
+    upper_pitch: [[22.72, 13.08]]     # [opt]
+    insertion_climb: [200.0, -195.65]  # [opt]
+    transfer_apogee: 650.0e+3         # target orbit altitude: Hohmann-type transfer to 650 km
+    fairing_heat_flux: 1135           # [UG 3.3]
+
+atmosphere:
+  backend: isa

@@ -25,8 +25,8 @@ The fairing is jettisoned when the free-molecular heat flux 0.5 rho v^3 falls
 below ``fairing_heat_flux`` (W/m^2), the criterion launch-vehicle guides quote.
 Steering is in the inertial plane of ``target_inclination``: the kick heads along the
 rotation-corrected launch azimuth, later stages yaw out residual out-of-plane velocity.
-``solve_program``
-tunes the free programme parameters to hit orbit and waypoint targets.
+``solve_program`` tunes free parameters to hit reference targets (calibration);
+``optimize_program`` chooses them to maximise delivered performance (prediction).
 """
 
 from __future__ import annotations
@@ -406,24 +406,11 @@ def _set_path(obj, path: list[str], value: float):
         setattr(obj, last, value)
 
 
-def solve_program(sim: OrbitalAscentSim, vehicle: LaunchVehicle, free: dict, targets: list,
-                  atmosphere=None, **kw):
-    """Tune programme (and optionally vehicle) parameters by least squares.
-
-    free    : {"kick_angle": (x0, lo, hi), "upper_pitch.0.1": ..., "insertion_pitch.0": ...,
-               "vehicle.stages.0.propellant_mass": ...}; dotted paths index into fields,
-              a "vehicle." prefix addresses the LaunchVehicle instead of the programme
-    targets : [(fn(result, vehicle) -> value, goal, scale), ...]
-    Returns (program, vehicle, result, scipy OptimizeResult).
-    """
+def _builder(sim: OrbitalAscentSim, vehicle: LaunchVehicle, names: list[str], atmosphere=None):
+    """build(x) -> (program, vehicle) and run(x) -> (result, vehicle) for dotted parameter paths
+    (a "vehicle." prefix addresses the LaunchVehicle instead of the programme)."""
     import copy
 
-    from scipy.optimize import least_squares
-
-    names = list(free)
-    x0 = np.array([free[k][0] for k in names], float)
-    lo = np.array([free[k][1] for k in names], float)
-    hi = np.array([free[k][2] for k in names], float)
     base = dataclasses.asdict(sim.program)
 
     def build(x):
@@ -448,6 +435,27 @@ def solve_program(sim: OrbitalAscentSim, vehicle: LaunchVehicle, free: dict, tar
         s = OrbitalAscentSim(sim.lat, sim.lon, sim.h0, prog, sim.rtol, sim.max_step)
         return s.run(veh, atmosphere=atmosphere), veh
 
+    return build, run
+
+
+def solve_program(sim: OrbitalAscentSim, vehicle: LaunchVehicle, free: dict, targets: list,
+                  atmosphere=None, **kw):
+    """Tune programme (and optionally vehicle) parameters by least squares.
+
+    free    : {"kick_angle": (x0, lo, hi), "upper_pitch.0.1": ..., "insertion_pitch.0": ...,
+               "vehicle.stages.0.propellant_mass": ...}; dotted paths index into fields,
+              a "vehicle." prefix addresses the LaunchVehicle instead of the programme
+    targets : [(fn(result, vehicle) -> value, goal, scale), ...]
+    Returns (program, vehicle, result, scipy OptimizeResult).
+    """
+    from scipy.optimize import least_squares
+
+    names = list(free)
+    x0 = np.array([free[k][0] for k in names], float)
+    lo = np.array([free[k][1] for k in names], float)
+    hi = np.array([free[k][2] for k in names], float)
+    build, run = _builder(sim, vehicle, names, atmosphere)
+
     def residuals(x):
         try:
             res, veh = run(x)
@@ -458,4 +466,56 @@ def solve_program(sim: OrbitalAscentSim, vehicle: LaunchVehicle, free: dict, tar
     opt = least_squares(residuals, x0, bounds=(lo, hi), x_scale="jac", diff_step=1e-3, **kw)
     prog, veh = build(opt.x)
     res, _ = run(opt.x)
+    return prog, veh, res, opt
+
+
+def optimize_program(sim: OrbitalAscentSim, vehicle: LaunchVehicle, free: dict,
+                     objective=None, constraints: list = (), atmosphere=None,
+                     maxfev: int = 400, verbose: bool = False):
+    """Choose the programme by trajectory optimisation, not by fitting a reference trajectory.
+
+    Maximises ``objective(result, vehicle)`` (default: last-stage propellant left in the final
+    orbit, i.e. delivered performance) subject to ``constraints`` = [(fn, lower, upper, scale)]
+    (None for an open side), as an exterior quadratic penalty. A run whose last stage cannot
+    reach the transfer apogee scores by its apogee shortfall, so the search is pulled towards
+    feasible programmes. Bounded Nelder-Mead in coordinates normalised to the ``free`` bounds.
+    Returns (program, vehicle, result, scipy OptimizeResult).
+    """
+    from scipy.optimize import minimize
+
+    names = list(free)
+    lo = np.array([free[k][1] for k in names], float)
+    hi = np.array([free[k][2] for k in names], float)
+    z0 = (np.array([free[k][0] for k in names], float) - lo) / (hi - lo)
+    build, run = _builder(sim, vehicle, names, atmosphere)
+    objective = objective or (lambda res, veh: res.meta["propellant_left"])
+    best = {"J": np.inf}
+
+    def cost(z):
+        x = lo + np.clip(z, 0, 1) * (hi - lo)
+        try:
+            res, veh = run(x)
+        except (RuntimeError, ValueError, FloatingPointError):
+            return 1e6
+        if res.meta["warnings"]:                          # transfer apogee not reached
+            short = sim.program.transfer_apogee - res.orbits["transfer"].apogee_alt
+            J = 1e3 + max(short, 0.0) / 1e3
+        else:
+            J = -objective(res, veh) / 1e3
+            for fn, a, b, scale in constraints:
+                v = fn(res, veh)
+                viol = (a - v if a is not None and v < a else 0.0) +                        (v - b if b is not None and v > b else 0.0)
+                J += 10.0 * (viol / scale) ** 2
+        if J < best["J"]:
+            best.update(J=J, x=x)
+            if verbose:
+                print(f"J {J:10.4f}  " + "  ".join(f"{n}={v:.3f}" for n, v in zip(names, x)))
+        return J
+
+    opt = minimize(cost, z0, method="Nelder-Mead", bounds=[(0, 1)] * len(names),
+                   options={"maxfev": maxfev, "xatol": 1e-3, "fatol": 1e-4, "adaptive": True})
+    x = lo + np.clip(opt.x, 0, 1) * (hi - lo)
+    opt.x_phys = x
+    prog, veh = build(x)
+    res, _ = run(x)
     return prog, veh, res, opt

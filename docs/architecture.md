@@ -143,11 +143,33 @@ vehicle parameters to orbit or waypoint targets by least squares; the Rockot
 example (`examples/rockot_ascent.py`) uses it to calibrate unpublished stage
 masses to the User's Guide reference trajectory.
 
+That calibration is grey-box parameter estimation: it reproduces the reference,
+but the fitted masses absorb whatever the model gets wrong. The first-principles
+route predicts instead and keeps the reference for checking only:
+
+- engines: `propulsion/liquid/design.py` runs NASA CEA at the published chamber
+  pressure and mixture ratio, averages shifting-equilibrium and frozen expansion,
+  and applies textbook c* and Cf efficiencies (0.98 each, not tuned). The nozzle
+  comes from the expansion ratio, the exit diameter, or a published vacuum /
+  sea-level Isp pair (their difference fixes A_e/mdot). `Stage.from_engines`
+  mixes engines into a stage; propellant = mass flow x burn time.
+- drag: `flight/aero.py` builds Cd(M) from length, diameter and nose length.
+- steering: `optimize_program` chooses the programme that maximises delivered
+  mass (last-stage propellant left in the final orbit) under constraints
+  (bounded Nelder-Mead with penalties), as a guidance designer would.
+
+`examples/rockot_first_principles.py` applies this to Rockot and then compares
+with the guide's waypoints.
+
 ## Plotting
 
 `aerosim.plots` returns matplotlib figures in one validated, colour-vision-safe
 palette (light and dark), one y-axis per panel, small multiples instead of twin
 axes, text in ink colours, legends whenever there are two or more series.
+`plots/replay.py` writes an animated 3D replay of one or more ascents as a
+standalone HTML page (three.js from a CDN, flight data embedded): globe with
+coastlines (Natural Earth, public domain), live telemetry, charts and time
+controls.
 
 ## Roadmap
 

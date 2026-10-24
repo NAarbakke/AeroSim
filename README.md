@@ -74,15 +74,18 @@ aerosim/
 │   ├── solid/            bates.py (fast BATES) · grain_motor.py (any grain stack, time-stepped)
 │   │                     grains.py (BATES, finocyl, star, C, D, X, moon, rod-and-tube,
 │   │                     end burner, custom outline) · propellant.py · ric.py (openMotor files)
-│   ├── liquid/           engine.py (CEA-based) · tanks.py (CoolProp, N2O blowdown)
+│   ├── liquid/           engine.py (CEA-based) · design.py (engine design point: CEA + losses ->
+│   │                     Isp, mdot, nozzle) · tanks.py (CoolProp, N2O blowdown)
 │   ├── airbreathing/     ideal_turbojet.py (constant-cp or Cantera)
 │   └── adapters/         external wrappers: openmotor (cross-check) · pycycle_engine ·
 │                         turbomachinery (TurboFlow) · feed_system (FullFlow / pyskyfire)
 ├── atmosphere/       standard.py (US76, exponential above 86 km) · profile.py · weather.py
 ├── flight/           vehicles.py (RocketVehicle, AircraftVehicle, Stage, LaunchVehicle)
+│   ├── aero.py           launcher drag build-up from geometry (friction, wave, base)
 │   ├── orbits.py         Earth model (WGS-84, J2, rotation), orbit elements
 │   ├── rocket/           point_mass.py (3-DOF) · planar.py (attitude, TVC) ·
-│   │                     orbital_ascent.py (multi-stage launcher to orbit, programme fitting)
+│   │                     orbital_ascent.py (multi-stage launcher to orbit; programme fitting
+│   │                     and trajectory optimisation)
 │   └── adapters/         rocketpy_sim (6-DOF) · jsbsim_sim (unfinished)
 ├── gnc/              guidance & control
 │   ├── blocks.py         PID (anti-windup), Actuator (lag/rate/limits), Sensor (noise/bias)
@@ -91,19 +94,22 @@ aerosim/
 ├── optimization/     mdao.py (OpenMDAO components) · trajectory.py (Dymos optimal ascent)
 ├── missions/         YAML-driven runner wiring propulsion -> atmosphere -> flight
 ├── plots/            matplotlib charts: thrust curves, motor history, grain burnback,
-│                     flight profiles, ascent small multiples, ground tracks
+│                     flight profiles, ascent small multiples, ground tracks;
+│                     replay.py: animated 3D ascent replay as a standalone HTML page
 └── cli.py            aerosim run | backends | atm
 configs/examples/
 ├── rocket/solid/     knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
 │                     finocyl_grain_motor (GrainMotor)
 ├── rocket/liquid/    cea_engine
-├── rocket/orbital/   rockot (Rockot / Breeze-KM from Plesetsk)
+├── rocket/orbital/   rockot (calibrated to the User's Guide) · rockot_first_principles
+│                     (CEA engines, drag from geometry, optimised steering)
 └── aircraft/         turbojet
 examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
-                      rockot_ascent (calibrate + fly the Rockot reference mission)
+                      rockot_ascent (calibrate + fly the Rockot reference mission) ·
+                      rockot_first_principles (predict it, then check) · rockot_replay (3D)
 tests/                pytest, one folder per layer (core, thermo, propulsion, ...)
 docs/                 architecture.md · licensing.md · references/rockot (User's Guide) ·
-                      briefings/rockot (PDF + PPTX briefing and its generator)
+                      briefings/rockot (PDF + PPTX briefing, 3D replay page, generators)
 ```
 
 `adapters/` folders hold wrappers around external libraries. Everything outside them is a
@@ -131,11 +137,13 @@ built-in model.
 | Flight | Planar rigid-body rocket: attitude, weathercocking, TVC | working |
 | Flight | RocketPy 6-DOF (`flight/adapters`) | working; no wind: apogee within 0.3 % of point-mass |
 | Flight | Multi-stage orbital ascent (rotating oblate Earth, staging, fairing, restarts) | working; Rockot reference mission reproduced, see briefing |
+| Flight | Trajectory optimisation (`optimize_program`), drag from geometry | working; first-principles Rockot reaches orbit, burnout speeds within 2.5 % of the guide |
 | Flight | JSBSim (`flight/adapters`) | runner done, deck->XML TODO |
 | GNC | PID / actuators / sensors, air-brake apogee control, TVC attitude hold | working |
 | GNC | python-control design: pole placement, LQR, margins | working |
 | Optimization | Dymos optimal throttle (Goddard), max-q constraint | working, verified by independent replay |
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
 | Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |
+| Plots | 3D ascent replay (`aerosim.plots.replay`, three.js page, no Python deps) | working |
 
 See `docs/architecture.md` for the design rules and how to add a backend.

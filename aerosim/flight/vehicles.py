@@ -84,6 +84,31 @@ class Stage:
     def thrust(self, ambient_pressure: float) -> float:
         return max(self.thrust_vac - ambient_pressure * self.exit_area, 0.0)
 
+    @classmethod
+    def from_engines(cls, name: str, engines: list[dict], dry_mass: float,
+                     burn_time: float | None = None, propellant_mass: float | None = None,
+                     max_burns: int = 1, **_) -> Stage:
+        """Stage from engine design points (``aerosim.propulsion.liquid.design.engine_point``
+        dicts, or the keyword dicts that produce them). Isp is the mass-flow-weighted mix;
+        give ``burn_time`` to size the propellant (mdot x t) or ``propellant_mass`` to get the
+        burn time. Each engine dict is kept in ``engines`` for reporting."""
+        from aerosim.propulsion.liquid.design import engine_point
+        pts = [e if "mdot" in e else engine_point(**e) for e in engines]
+        F = sum(e["thrust_vac"] for e in pts)
+        mdot = sum(e["mdot"] for e in pts)
+        ae = sum(e["exit_area"] for e in pts)
+        if propellant_mass is None:
+            if burn_time is None:
+                raise ValueError(f"{name}: give burn_time or propellant_mass")
+            propellant_mass = mdot * burn_time
+        else:
+            burn_time = propellant_mass / mdot
+        isp = F / (mdot * 9.80665)
+        st = cls(name, propellant_mass, dry_mass, isp, burn_time,
+                 isp - 101_325.0 * ae / (mdot * 9.80665) if ae > 0 else None, max_burns)
+        st.engines = pts
+        return st
+
 
 @dataclass
 class LaunchVehicle:
@@ -94,13 +119,20 @@ class LaunchVehicle:
     fairing_mass: float = 0.0       # kg, jettisoned during flight
     adapter_mass: float = 0.0       # kg, stays with the last stage
     diameter: float = 2.5           # m, reference for drag
-    drag_curve: list[tuple[float, float]] = field(default_factory=lambda: [
+    # [(mach, cd), ...], or geometry {length, nose_length, base_exposed?, reynolds?} for the
+    # component build-up in aerosim.flight.aero
+    drag_curve: list[tuple[float, float]] | dict = field(default_factory=lambda: [
         (0.0, 0.30), (0.8, 0.33), (1.0, 0.48), (1.2, 0.52), (1.5, 0.45),
         (2.0, 0.38), (3.0, 0.30), (5.0, 0.25), (10.0, 0.22)])   # generic slender LV
     name: str = "launch vehicle"
 
     def __post_init__(self) -> None:
-        self.stages = [s if isinstance(s, Stage) else Stage(**s) for s in self.stages]
+        self.stages = [s if isinstance(s, Stage) else
+                       Stage.from_engines(**s) if "engines" in s else Stage(**s)
+                       for s in self.stages]
+        if isinstance(self.drag_curve, dict):
+            from aerosim.flight.aero import drag_curve
+            self.drag_curve = drag_curve(diameter=self.diameter, **self.drag_curve)
 
     @property
     def liftoff_mass(self) -> float:

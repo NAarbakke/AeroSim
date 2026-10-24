@@ -20,3 +20,9 @@ for openMotor. If you ever ship a single bundled binary that includes openMotor,
 that bundle must be GPL-3.0. Verify each licence at the pinned version before release.
 
 RocketCEA (GPL-3.0) was removed; NASA CEA covers the same rocket problem.
+
+## Bundled data
+
+- `aerosim/plots/data/coastline_110m.json`: Natural Earth 1:110m coastline, public domain
+  (naturalearthdata.com), simplified to two decimals.
+- The 3D replay page loads three.js (MIT) from jsDelivr at view time; it is not bundled.

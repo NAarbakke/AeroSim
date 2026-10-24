@@ -54,3 +54,22 @@ def test_ascent_reaches_target_orbit(two_stage_flight):
     assert np.all(np.diff(res.time) > 0)
     # mass only ever decreases
     assert np.all(np.diff(res.mass) <= 1e-6)
+
+
+def test_optimize_program_improves_delivered_mass():
+    from aerosim.flight.rocket.orbital_ascent import optimize_program
+
+    veh = LaunchVehicle(
+        stages=[Stage("S1", 20_000, 2_000, 300, 120, isp_sl=270),
+                Stage("S2", 4_000, 500, 330, 400, max_burns=2)],
+        payload_mass=200, fairing_mass=100, diameter=1.5)
+    prog = AscentProgram(target_inclination=51.6, kick_angle=10.0, vertical_time=6, kick_time=10,
+                         upper_pitch=[], transfer_apogee=300e3)
+    sim = OrbitalAscentSim(45.9, 63.3, program=prog, rtol=1e-6)
+    start = sim.run(veh).meta["propellant_left"]
+    best, _veh, res, opt = optimize_program(
+        sim, veh, {"kick_angle": (10.0, 6.0, 20.0)},
+        constraints=[(lambda r, v: r.final_orbit.perigee_alt, 295e3, None, 2e3)], maxfev=14)
+    assert res.meta["warnings"] == []
+    assert res.meta["propellant_left"] >= start
+    assert best.kick_angle == pytest.approx(opt.x_phys[0])
