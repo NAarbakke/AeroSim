@@ -28,7 +28,7 @@ from aerosim.flight.rocket.orbital_ascent import AscentProgram, OrbitalAscentSim
 from aerosim.flight.vehicles import LaunchVehicle
 
 ROOT = Path(__file__).resolve().parents[1]
-CFG = ROOT / "configs" / "examples" / "rocket" / "orbital" / "rockot_first_principles.yaml"
+CFG = ROOT / "configs" / "orbital" / "rockot_first_principles.yaml"
 
 FREE = {
     "kick_angle": (15.0, 5.0, 30.0),

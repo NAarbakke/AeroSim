@@ -61,7 +61,7 @@ def test_alias_resolution():
 
 
 def test_liquid_mission_end_to_end():
-    cfg = Path(__file__).parents[2] / "configs" / "examples" / "rocket" / "liquid" / "cea_engine.yaml"
+    cfg = Path(__file__).parents[2] / "configs" / "liquid" / "cea_engine.yaml"
     out = run_mission(cfg)
     assert 200 < out.propulsion.average_isp < 280
     assert out.flight.apogee > 1000

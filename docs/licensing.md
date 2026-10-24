@@ -25,4 +25,6 @@ RocketCEA (GPL-3.0) was removed; NASA CEA covers the same rocket problem.
 
 - `aerosim/plots/data/coastline_110m.json`: Natural Earth 1:110m coastline, public domain
   (naturalearthdata.com), simplified to two decimals.
-- The 3D replay page loads three.js (MIT) from jsDelivr at view time; it is not bundled.
+- three.js r160 (MIT, (c) three.js authors): `aerosim/plots/data/three/` holds the unmodified
+  `three.module.min.js` and `OrbitControls.js` from the npm package, with its `LICENSE`. The 3D
+  replay page embeds them so it works offline.

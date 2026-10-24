@@ -57,7 +57,10 @@ def test_ascent_replay_page(tmp_path):
     out = tmp_path / "replay.html"
     write_replay({"A": res, "B <test>": res}, out, site=(45.0, 63.0), title="T & t")
     page = out.read_text(encoding="utf-8")
-    assert "<title>T &amp; t</title>" in page and "three@" in page
+    assert "<title>T &amp; t</title>" in page
+    imap = json.loads(re.search(r'type="importmap">(.*?)</script>', page).group(1))["imports"]
+    assert all(u.startswith("data:text/javascript;base64,") for u in imap.values())  # offline
+    assert "http" not in page.split('id="data"')[0]
     data = json.loads(re.search(r'id="data">(.*?)</script>', page, re.DOTALL).group(1))
     assert [m["name"] for m in data["models"]] == ["A", "B <test>"]
     m = data["models"][0]

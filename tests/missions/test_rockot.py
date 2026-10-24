@@ -6,7 +6,7 @@ import pytest
 
 from aerosim.missions import run_mission
 
-CFG = Path(__file__).parents[2] / "configs" / "examples" / "rocket" / "orbital" / "rockot.yaml"
+CFG = Path(__file__).parents[2] / "configs" / "orbital" / "rockot.yaml"
 
 
 @pytest.fixture(scope="module")

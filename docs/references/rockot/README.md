@@ -6,5 +6,5 @@
 Source: originally https://www.eurockot.com/wp-content/uploads/2012/10/UsersGuideIss5Rev0web.pdf
 (site offline), retrieved from the Internet Archive snapshot of 2026-05-23.
 
-Copyright Eurockot. Kept here as a reference for `configs/examples/rocket/orbital/rockot.yaml`;
+Copyright Eurockot. Kept here as a reference for `configs/orbital/rockot.yaml`;
 check redistribution terms before publishing this repository.

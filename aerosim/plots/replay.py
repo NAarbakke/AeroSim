@@ -11,12 +11,14 @@
              bar, follow-the-vehicle camera, altitude exaggeration
 
 Several results (e.g. calibrated vs first-principles models) fly together in the fixed
-palette order of ``aerosim.plots.style``. The page loads three.js from jsDelivr; the flight
-data (lat/lon/altitude per sample) is embedded, a few hundred kB per model.
+palette order of ``aerosim.plots.style``. Everything is embedded, so the page works offline
+from a double-clicked file: the flight data (a few hundred kB per model) and three.js r160
+(MIT, ``data/three/``, ~0.9 MB as data: URLs in the import map).
 """
 
 from __future__ import annotations
 
+import base64
 import html
 import json
 from importlib import resources
@@ -25,7 +27,6 @@ import numpy as np
 
 from aerosim.plots.style import THEMES
 
-THREE = "0.160.0"
 EVENT_LABELS = {"max_q": "Max q", "Stage 1_burnout": "Stage 1 separation",
                 "fairing_jettison": "Fairing jettison", "Stage 2_burnout": "Stage 2 separation"}
 
@@ -55,6 +56,16 @@ def _pack(res, max_points: int = 4000) -> dict:
             "phases": list(res.phases), "events": [[_event_label(k), t] for k, t in ev.items()]}
 
 
+def _importmap() -> str:
+    """three.js and OrbitControls inlined as data: URLs, so the page needs no network."""
+    def url(name):
+        b = resources.files("aerosim.plots").joinpath(f"data/three/{name}").read_bytes()
+        return "data:text/javascript;base64," + base64.b64encode(b).decode("ascii")
+    imports = {"three": url("three.module.min.js"),
+               "three/addons/controls/OrbitControls.js": url("OrbitControls.js")}
+    return json.dumps({"imports": imports}, separators=(",", ":"))
+
+
 def replay_html(results, site: tuple[float, float], title: str = "Ascent replay",
                 subtitle: str = "", theme: str = "dark") -> str:
     """The replay page as an HTML string (see module docstring)."""
@@ -67,11 +78,12 @@ def replay_html(results, site: tuple[float, float], title: str = "Ascent replay"
                        for i, (k, r) in enumerate(results.items())],
             "site": list(site), "coast": coast, "theme": T, "dark": theme == "dark"}
     page = _PAGE.replace("__TITLE__", html.escape(title)).replace("__SUB__", html.escape(subtitle))
-    page = page.replace("__THREE__", THREE).replace("__SERIES0__", T["series"][0])
+    page = page.replace("__SERIES0__", T["series"][0])
     for k, v in T.items():
         if isinstance(v, str):
             page = page.replace(f"__{k.upper()}__", v)
-    return page.replace("__DATA__", json.dumps(data, separators=(",", ":")).replace("</", "<\\/"))
+    page = page.replace("__DATA__", json.dumps(data, separators=(",", ":")).replace("</", "<\\/"))
+    return page.replace("__IMPORTMAP__", _importmap())
 
 
 def write_replay(results, path, site: tuple[float, float], title: str = "Ascent replay",
@@ -151,8 +163,7 @@ label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;c
  </div>
 </div>
 <script type="application/json" id="data">__DATA__</script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@__THREE__/build/three.module.js",
-"three/addons/":"https://cdn.jsdelivr.net/npm/three@__THREE__/examples/jsm/"}}</script>
+<script type="importmap">__IMPORTMAP__</script>
 <script type="module">
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";

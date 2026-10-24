@@ -56,7 +56,7 @@ aerosim/
   optimization/  mdao, trajectory
   missions/      runner (YAML -> backends -> FlightResult)
 tests/           same folder names as aerosim/
-configs/examples/ rocket/solid, rocket/liquid, aircraft
+configs/         solid, liquid, orbital, aircraft (example YAML missions)
 ```
 
 ## Adding a backend
@@ -71,7 +71,7 @@ class HybridMotor:
 ```
 
 Import it in the layer's `__init__.py` (or `adapters/__init__.py` if it wraps an
-unfinished external library), add a config example under `configs/examples/` and a
+unfinished external library), add an example config under `configs/` and a
 test in the matching `tests/<layer>/` folder. Done.
 
 ## Who does which chemistry
@@ -167,7 +167,7 @@ with the guide's waypoints.
 palette (light and dark), one y-axis per panel, small multiples instead of twin
 axes, text in ink colours, legends whenever there are two or more series.
 `plots/replay.py` writes an animated 3D replay of one or more ascents as a
-standalone HTML page (three.js from a CDN, flight data embedded): globe with
+standalone HTML page that works offline (three.js and flight data embedded): globe with
 coastlines (Natural Earth, public domain), live telemetry, charts and time
 controls.
 

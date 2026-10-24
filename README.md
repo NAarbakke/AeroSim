@@ -13,8 +13,8 @@ pip install -e '.[control,optim]'     # python-control, OpenMDAO + Dymos
 pip install -e '.[rocket,weather]'    # add RocketPy + Herbie
 pip install -e '.[grains,plot]'       # non-circular solid grains, matplotlib plots
 pip install -e '.[all,dev]'           # everything on PyPI (except turboflow, see below)
-aerosim run configs/examples/rocket/solid/knsb_isa.yaml
-aerosim run configs/examples/rocket/solid/finocyl_grain_motor.yaml
+aerosim run configs/solid/knsb_isa.yaml
+aerosim run configs/solid/finocyl_grain_motor.yaml
 aerosim backends
 ```
 
@@ -97,11 +97,11 @@ aerosim/
 │                     flight profiles, ascent small multiples, ground tracks;
 │                     replay.py: animated 3D ascent replay as a standalone HTML page
 └── cli.py            aerosim run | backends | atm
-configs/examples/
-├── rocket/solid/     knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
+configs/             example YAML mission configs (aerosim run <file>)
+├── solid/            knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
 │                     finocyl_grain_motor (GrainMotor)
-├── rocket/liquid/    cea_engine
-├── rocket/orbital/   rockot (calibrated to the User's Guide) · rockot_first_principles
+├── liquid/           cea_engine
+├── orbital/          rockot (calibrated to the User's Guide) · rockot_first_principles
 │                     (CEA engines, drag from geometry, optimised steering)
 └── aircraft/         turbojet
 examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
@@ -144,6 +144,6 @@ built-in model.
 | Optimization | Dymos optimal throttle (Goddard), max-q constraint | working, verified by independent replay |
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
 | Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |
-| Plots | 3D ascent replay (`aerosim.plots.replay`, three.js page, no Python deps) | working |
+| Plots | 3D ascent replay (`aerosim.plots.replay`, three.js page, works offline) | working |
 
 See `docs/architecture.md` for the design rules and how to add a backend.

@@ -9,7 +9,7 @@ pytest.importorskip("rocketpy")
 
 from aerosim.missions import run_mission
 
-CFG = Path(__file__).parents[2] / "configs" / "examples" / "rocket" / "solid" / "knsb_isa.yaml"
+CFG = Path(__file__).parents[2] / "configs" / "solid" / "knsb_isa.yaml"
 
 
 def test_rocketpy_matches_point_mass_without_wind():

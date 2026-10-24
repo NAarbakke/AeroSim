@@ -23,7 +23,7 @@ from aerosim.flight.rocket.orbital_ascent import AscentProgram, OrbitalAscentSim
 from aerosim.flight.vehicles import LaunchVehicle
 
 ROOT = Path(__file__).resolve().parents[1]
-CFG = ROOT / "configs" / "examples" / "rocket" / "orbital" / "rockot.yaml"
+CFG = ROOT / "configs" / "orbital" / "rockot.yaml"
 
 # Rockot User's Guide, Figure 3-6 (650 km circular, i = 86.583 deg)
 GUIDE = {
