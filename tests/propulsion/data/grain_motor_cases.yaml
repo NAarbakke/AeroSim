@@ -1,0 +1,470 @@
+# Motors from openMotor's regression suite, restated in GrainMotor's own config format.
+# 'reference' = openMotor 0.4.0 results for the same inputs (average thrust N, Isp s,
+# burn time s, propellant mass kg), used as independent check values.
+- name: c
+  grains:
+  - type: c_grain
+    diameter: 0.0307849
+    length: 0.1016002
+    slot_width: 0.004699
+    slot_offset: 0.003175
+  nozzle:
+    throat_diameter: 0.004445
+    exit_diameter: 0.0127
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Ocean Water
+    density: 1650.0
+    tabs:
+    - a: 1.467e-05
+      n: 0.382
+      gamma: 1.25
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.0
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 56
+    isp: 198.251
+    burnTime: 3.96
+    propMass: 0.1148
+- name: d
+  grains:
+  - type: d_grain
+    diameter: 0.0830582
+    length: 0.9144018
+    inhibited_ends: Top
+    slot_offset: 0.0254001
+  nozzle:
+    throat_diameter: 0.01778
+    exit_diameter: 0.0508001
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 1135
+    isp: 219.392
+    burnTime: 13.56
+    propMass: 7.1695
+- name: endburner
+  grains:
+  - type: end_burner
+    diameter: 0.0635001
+    length: 0.1524003
+    inhibited_ends: Top
+  nozzle:
+    throat_diameter: 0.00635
+    exit_diameter: 0.01778
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: RCS - Warp 9
+    density: 1641.418
+    tabs:
+    - a: 0.0002472182
+      n: 0.287
+      gamma: 1.229
+      t_chamber: 2780.0
+      molar_mass: 0.023669
+      min_pressure: 0.0
+      max_pressure: 10342500.000000002
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 217
+    isp: 205.149
+    burnTime: 7.29
+    propMass: 0.7925
+- name: inhibited
+  grains:
+  - type: finocyl
+    diameter: 0.0830582
+    length: 0.4572009
+    inhibited_ends: Both
+    core_diameter: 0.022225
+    fin_length: 0.0127
+    fin_width: 0.0047625
+    num_fins: 6
+  nozzle:
+    throat_diameter: 0.02032
+    exit_diameter: 0.0539751
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Ocean Water
+    density: 1650.0
+    tabs:
+    - a: 1.467e-05
+      n: 0.382
+      gamma: 1.25
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.0
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 1792
+    isp: 216.977
+    burnTime: 4.14
+    propMass: 3.513
+- name: moon
+  grains:
+  - type: moon_burner
+    diameter: 0.0647701
+    length: 0.5334011
+    core_diameter: 0.02032
+    core_offset: 0.01778
+  nozzle:
+    throat_diameter: 0.013335
+    exit_diameter: 0.0381001
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Ocean Water
+    density: 1650.0
+    tabs:
+    - a: 1.467e-05
+      n: 0.382
+      gamma: 1.25
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.0
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 645
+    isp: 213.417
+    burnTime: 8.43
+    propMass: 2.6077
+- name: nozzleErosion
+  grains:
+  - type: bates
+    diameter: 0.0830582
+    length: 0.1524003
+    core_diameter: 0.0285751
+  - type: bates
+    diameter: 0.0830582
+    length: 0.1524003
+    core_diameter: 0.0285751
+  - type: bates
+    diameter: 0.0830582
+    length: 0.1524003
+    core_diameter: 0.0285751
+  - type: bates
+    diameter: 0.0830582
+    length: 0.1524003
+    core_diameter: 0.0285751
+  nozzle:
+    throat_diameter: 0.02032
+    exit_diameter: 0.0571501
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 2132
+    isp: 229.409
+    burnTime: 5.13
+    propMass: 4.8929
+- name: nozzleSlag
+  grains:
+  - type: bates
+    diameter: 0.0647955
+    length: 0.1079502
+    core_diameter: 0.02032
+  nozzle:
+    throat_diameter: 0.00762
+    exit_diameter: 0.01778
+    efficiency: 0.8
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 1576.1415185
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 309
+    isp: 210.987
+    burnTime: 3.57
+    propMass: 0.5393
+- name: rodtube
+  grains:
+  - type: rod_and_tube
+    diameter: 0.1841504
+    length: 0.9144018
+    inhibited_ends: Both
+    core_diameter: 0.1073152
+    rod_diameter: 0.0768352
+  nozzle:
+    throat_diameter: 0.0419101
+    exit_diameter: 0.1206502
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 12346
+    isp: 236.732
+    burnTime: 6.39
+    propMass: 34.1487
+- name: simple
+  grains:
+  - type: bates
+    diameter: 0.0830582
+    length: 0.1397003
+    core_diameter: 0.0317501
+  - type: bates
+    diameter: 0.0830582
+    length: 0.1397003
+    core_diameter: 0.0317501
+  nozzle:
+    throat_diameter: 0.01397
+    exit_diameter: 0.0349251
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 1065
+    isp: 231
+    burnTime: 4.59
+    propMass: 2.1718
+- name: star
+  grains:
+  - type: star
+    diameter: 0.0441961
+    length: 0.2286005
+    num_points: 6
+    point_length: 0.0127
+    point_width: 0.00635
+  nozzle:
+    throat_diameter: 0.01016
+    exit_diameter: 0.0254001
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Ocean Water
+    density: 1650.0
+    tabs:
+    - a: 1.467e-05
+      n: 0.382
+      gamma: 1.25
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.0
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 445
+    isp: 217.038
+    burnTime: 2.43
+    propMass: 0.5153
+- name: tabular
+  grains:
+  - type: bates
+    diameter: 0.0448311
+    length: 0.0793752
+    core_diameter: 0.015875
+  - type: bates
+    diameter: 0.0448311
+    length: 0.0793752
+    core_diameter: 0.015875
+  - type: bates
+    diameter: 0.0448311
+    length: 0.0793752
+    core_diameter: 0.015875
+  nozzle:
+    throat_diameter: 0.009144
+    exit_diameter: 0.0254001
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: Nakka - KNSB
+    density: 1750.0
+    tabs:
+    - a: 1.9253e-06
+      n: 0.625
+      gamma: 1.1361
+      t_chamber: 1520.0
+      molar_mass: 0.0399
+      min_pressure: 103425.0
+      max_pressure: 806715.0
+    - a: 0.6656608562
+      n: -0.313
+      gamma: 1.1361
+      t_chamber: 1520.0
+      molar_mass: 0.0399
+      min_pressure: 806715.0
+      max_pressure: 1503110.0
+    - a: 0.0095281212
+      n: -0.0145
+      gamma: 1.1361
+      t_chamber: 1520.0
+      molar_mass: 0.0399
+      min_pressure: 1503110.0
+      max_pressure: 3792250.0
+    - a: 2.7097e-06
+      n: 0.5245
+      gamma: 1.1361
+      t_chamber: 1520.0
+      molar_mass: 0.0399
+      min_pressure: 3792250.0
+      max_pressure: 7032900.0
+    - a: 0.0041767726
+      n: 0.059
+      gamma: 1.1361
+      t_chamber: 1520.0
+      molar_mass: 0.0399
+      min_pressure: 7032900.0
+      max_pressure: 10673460.0
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 387
+    isp: 119.342
+    burnTime: 1.71
+    propMass: 0.5756
+- name: tiny
+  grains:
+  - type: bates
+    diameter: 0.0254001
+    length: 0.0457201
+    core_diameter: 0.008255
+  nozzle:
+    throat_diameter: 0.003048
+    exit_diameter: 0.00762
+    efficiency: 0.8
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.01
+  reference:
+    averageThrust: 45.567
+    isp: 201.563
+    burnTime: 1.5
+    propMass: 0.035
+- name: x
+  grains:
+  - type: x_core
+    diameter: 0.1270511
+    length: 0.508001
+    slot_length: 0.0349251
+    slot_width: 0.01778
+  nozzle:
+    throat_diameter: 0.0254001
+    exit_diameter: 0.0698501
+    efficiency: 0.9
+    divergence_deg: 15.0
+    erosion_coeff: 0.0
+    slag_coeff: 0.0
+  propellant:
+    name: MIT - Cherry Limeade
+    density: 1680.0038
+    tabs:
+    - a: 3.51705e-05
+      n: 0.3273
+      gamma: 1.21
+      t_chamber: 3500.0
+      molar_mass: 0.02367
+      min_pressure: 0.0
+      max_pressure: 6895000.000000001
+  ambient_pressure: 101325.0
+  timestep: 0.03
+  reference:
+    averageThrust: 2990
+    isp: 223.582
+    burnTime: 6.54
+    propMass: 8.963

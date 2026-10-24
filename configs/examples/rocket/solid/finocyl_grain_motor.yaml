@@ -1,0 +1,50 @@
+# Two-grain 54 mm motor (finocyl forward, BATES aft) with AeroSim's grain simulator.
+# Needs: pip install -e '.[grains]'  (non-circular cores). To use an openMotor file
+# instead, replace grains/nozzle/propellant with:  ric_file: path/to/motor.ric
+kind: rocket
+
+propulsion:
+  backend: grain_motor
+  name: "54mm finocyl + BATES"
+  dry_mass: 0.6
+  grains:
+    - type: finocyl
+      diameter: 0.050
+      length: 0.090
+      core_diameter: 0.016
+      fin_length: 0.008
+      fin_width: 0.003
+      num_fins: 6
+      inhibited_ends: Top
+    - type: bates
+      diameter: 0.050
+      length: 0.090
+      core_diameter: 0.020
+  nozzle:
+    throat_diameter: 0.013
+    exit_diameter: 0.032
+    efficiency: 0.92
+    divergence_deg: 12
+  propellant:               # or a library name with NASA CEA, e.g.  propellant: KNSB
+    name: KNSB (tabbed)
+    density: 1841
+    tabs:                   # r = a * Pc^n per pressure range; gas gamma, T (K), M (kg/mol)
+      - {a: 1.0e-4, n: 0.32, gamma: 1.137, t_chamber: 1600, molar_mass: 0.0398,
+         min_pressure: 0.0, max_pressure: 1.0e+7}
+  timestep: 0.005
+
+vehicle:
+  dry_mass: 3.0
+  diameter: 0.066
+  drag_coefficient: 0.45
+  rail_length: 3.0
+  elevation_deg: 85
+  heading_deg: 90
+
+atmosphere:
+  backend: isa
+  wind_speed: 5.0
+  wind_from_deg: 270
+
+flight:
+  backend: point_mass

@@ -20,6 +20,7 @@ dependencies = [
 chem = ["cea>=3.3"]                              # NASA CEA (github.com/nasa/cea)
 fluids = ["CoolProp>=6.6"]                       # real-fluid props: tanks, blowdown, coolants
 gas = ["cantera>=3.0"]                           # gas properties + finite-rate kinetics
+grains = ["scikit-fmm", "scikit-image"]          # non-circular grain regression (GrainMotor)
 liquid = ["AeroSim[fluids]", "pyskyfire", "fullflow"]   # + regen cooling, feed networks
 airbreathing = ["AeroSim[gas]", "om-pycycle"]   # + cycle analysis (pyCycle)
 turboflow = ["turboflow"]                        # meanline turbomachinery; needs numpy<2, so it
@@ -30,7 +31,7 @@ aircraft = ["jsbsim"]                            # aircraft 6-DOF (LGPL-2.1)
 optim = ["openmdao>=3.30", "dymos>=1.10"]        # MDAO + optimal-control trajectories
 control = ["control>=0.10"]                      # python-control: linear design, margins, LQR
 dev = ["pytest>=8", "ruff"]
-all = ["AeroSim[chem,liquid,airbreathing,rocket,weather,aircraft,optim,control]"]
+all = ["AeroSim[chem,grains,liquid,airbreathing,rocket,weather,aircraft,optim,control]"]
 # RocketPy on Python 3.13: its dependency simplekml may fail to build; install
 # simplekml from source (pure Python) or use Python 3.11/3.12.
 # openMotor (solid grain ballistics) is GPL-3.0 and not on PyPI.

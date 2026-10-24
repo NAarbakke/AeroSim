@@ -3,6 +3,9 @@
 LICENCE BOUNDARY: openMotor is GPL-3.0 and is NOT a dependency of aerosim.
 This adapter imports it only at runtime if the user has installed it themselves
 (clone github.com/reilleya/openMotor and put it on PYTHONPATH). See docs/licensing.md.
+
+AeroSim's own ``grain_motor`` backend reads the same .ric files without openMotor;
+this adapter remains as an independent cross-check.
 """
 
 from __future__ import annotations
@@ -13,18 +16,7 @@ import numpy as np
 import yaml
 
 from aerosim.core import ThrustCurve, registry, require
-
-
-class _RicLoader(yaml.SafeLoader):
-    """Safe loader for .ric files. openMotor writes two Python-specific tags in the
-    header (file-type enum, version tuple); read them as plain data instead of using
-    yaml.Loader, which would execute arbitrary constructors and import PyQt6."""
-
-
-_RicLoader.add_constructor("tag:yaml.org,2002:python/tuple",
-                           lambda loader, node: tuple(loader.construct_sequence(node)))
-_RicLoader.add_multi_constructor("tag:yaml.org,2002:python/object/apply:",
-                                 lambda loader, suffix, node: loader.construct_sequence(node))
+from aerosim.propulsion.solid.ric import RicLoader
 
 
 @registry.register("rocket_engine", "openmotor")
@@ -35,7 +27,7 @@ class OpenMotorModel:
 
     def thrust_curve(self) -> ThrustCurve:
         motor_mod = require("motorlib.motor", "openmotor (install manually, GPL-3.0)")
-        data = yaml.load(self.ric_file.read_text(), Loader=_RicLoader)
+        data = yaml.load(self.ric_file.read_text(), Loader=RicLoader)
         motor = motor_mod.Motor()
         motor.applyDict(data.get("data", data))
         sim = motor.runSimulation()
