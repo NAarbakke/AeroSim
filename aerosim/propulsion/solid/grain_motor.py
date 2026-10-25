@@ -104,13 +104,14 @@ class GrainMotor:
         return sum(g.burn_area(0.0) for g in self.grains) / At
 
     def simulate(self) -> dict[str, np.ndarray]:
-        """Full time history: time, thrust, pressure, mass_flow, mass, kn, throat."""
+        """Full time history: time, thrust, pressure, mass_flow, mass, kn, throat, and webs
+        (n, grains): web burned per grain."""
         nz, m, rho = self.nozzle, self.model, self.model.density
         webs = np.zeros(len(self.grains))
         dt_ = nz.throat_diameter
         t, pc = 0.0, 2e6
         out = {k: [] for k in ("time", "thrust", "pressure", "mass_flow", "mass", "kn",
-                               "throat", "mass_flux")}
+                               "throat", "mass_flux", "webs")}
         mass = self.propellant_mass
         for _ in range(1_000_000):
             Ab = np.array([g.burn_area(w) for g, w in zip(self.grains, webs)])
@@ -138,14 +139,15 @@ class GrainMotor:
 
             for k, v in (("time", t), ("thrust", F), ("pressure", pc), ("kn", kn),
                          ("mass_flow", dm.sum() / self.dt), ("mass", mass), ("throat", dt_),
-                         ("mass_flux", flux.max())):
+                         ("mass_flux", flux.max()), ("webs", webs.copy())):
                 out[k].append(v)
             mass -= dm.sum()
             webs = new
             dt_ = max(dt_ + (nz.erosion_coeff * pc - nz.slag_coeff / pc) * self.dt, 1e-6)
             t += self.dt
         for k, v in (("time", t), ("thrust", 0.0), ("pressure", self.pa), ("kn", 0.0),
-                     ("mass_flow", 0.0), ("mass", 0.0), ("throat", dt_), ("mass_flux", 0.0)):
+                     ("mass_flow", 0.0), ("mass", 0.0), ("throat", dt_), ("mass_flux", 0.0),
+                     ("webs", np.array([gr.web_max for gr in self.grains]))):
             out[k].append(v)
         res = {k: np.asarray(v) for k, v in out.items()}
         self._check(res)

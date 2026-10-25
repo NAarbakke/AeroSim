@@ -102,7 +102,9 @@ aerosim/
 ├── missions/         YAML-driven runner wiring propulsion -> atmosphere -> flight
 ├── plots/            matplotlib charts: thrust curves, motor history, grain burnback,
 │                     flight profiles, ascent small multiples, ground tracks;
-│                     replay.py: animated 3D ascent replay as a standalone HTML page
+│                     replay.py: animated 3D ascent replay as a standalone HTML page;
+│                     site.py + web.py: results site (local-frame 3D replays, engines page);
+│                     engine_models.py + engines3d.py: 3D engine cutaways coloured by flow fields
 └── cli.py            aerosim run | backends | atm
 configs/             example YAML mission configs (aerosim run <file>)
 ├── solid/            knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
@@ -114,10 +116,12 @@ configs/             example YAML mission configs (aerosim run <file>)
 └── aircraft/         turbojet (JSBSim F-16 airframe on an AeroSim turbojet deck)
 examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
                       rockot_ascent (calibrate + fly the Rockot reference mission) ·
-                      rockot_first_principles (predict it, then check) · rockot_replay (3D)
+                      rockot_first_principles (predict it, then check) · rockot_replay (3D) ·
+                      build_site (all results as an offline website, docs/site/)
 tests/                pytest, one folder per layer (core, thermo, propulsion, ...)
 docs/                 architecture.md · licensing.md · references/rockot (User's Guide) ·
-                      briefings/rockot (PDF + PPTX briefing, 3D replay page, generators)
+                      briefings/rockot (PDF + PPTX briefing, 3D replay page, generators) ·
+                      site/ (results website: open index.html)
 ```
 
 `adapters/` folders hold wrappers around external libraries. Everything outside them is a
@@ -159,5 +163,7 @@ built-in model.
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
 | Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |
 | Plots | 3D ascent replay (`aerosim.plots.replay`, three.js page, works offline) | working |
+| Plots | Results site (`aerosim.plots.site`, `examples/build_site.py`): landing, F-16 and hybrid 3D replays, engines page | working |
+| Plots | 3D engine models (`aerosim.plots.engine_models`): liquid chambers (pyskyfire contour, isentropic gas fields, wall temperature), regressing solid grains, hybrid port and tank, ramjet / scramjet and gas-turbine cutaways | working |
 
 See `docs/architecture.md` for the design rules and how to add a backend.

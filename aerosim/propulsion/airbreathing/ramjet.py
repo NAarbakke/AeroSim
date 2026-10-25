@@ -80,12 +80,18 @@ class Ramjet:
             g.equilibrate("HP")
         return g.T, g.enthalpy_mass, g.entropy_mass, g.X.copy()
 
+    def _temperature(self, h: float, p: float, X) -> float:
+        g = self.gas.gas
+        g.TPX = 1000.0, p, X
+        g.HP = h, p
+        return g.T
+
     def _expand(self, s: float, p: float, X) -> float:
         """Enthalpy after expansion to p along the isentrope s (shifting or frozen)."""
         g = self.gas.gas
         g.TPX = 1000.0, p, X
         g.SP = s, p
-        if self.shifting and g.T > 1000.0:      # below ~1000 K the composition is frozen anyway
+        if self.shifting and g.T > 300.0:       # Cantera's equilibrium data starts at 300 K
             g.equilibrate("SP")
         return g.enthalpy_mass
 
@@ -107,11 +113,14 @@ class Ramjet:
             pt4 = pt0 * mil_recovery(mach) * self.pi_d * self.pi_b
             T4, h4, s4, X = self._burn((ht0 + f * hf) / (1 + f), pt4, f)
             if pt4 <= p0:
-                v9 = 0.0
+                v9, t9 = 0.0, T4
             else:
                 h9s = self._expand(s4, p0, X)
                 v9 = math.sqrt(max(2 * self.eta_n * (h4 - h9s), 0.0))
-            out |= {"t4": T4, "pt4": pt4, "burner_pressure": pt4}
+                t9 = self._temperature(h4 - 0.5 * v9 * v9, p0, X)
+            tt0 = self.gas.T_from_h(ht0, pt0)
+            out |= {"t4": T4, "pt4": pt4, "burner_pressure": pt4, "t0": T0, "p0": p0, "tt0": tt0,
+                    "pt0": pt0, "pt2": pt0 * mil_recovery(mach) * self.pi_d, "t9": t9}
         else:
             T3 = self.psi * T0
             h3 = self.gas.state(T3, p0)[0]
@@ -134,7 +143,8 @@ class Ramjet:
             h9s = self._expand(s4, p0, X)
             h9 = h4 - self.eta_e * (h4 - h9s)
             v9 = math.sqrt(max(2 * (ht4 - h9), 0.0))
-            out |= {"t3": T3, "p3": p3, "v3": V3, "t4": T4, "burner_pressure": p3}
+            out |= {"t3": T3, "p3": p3, "v3": V3, "t4": T4, "burner_pressure": p3, "t0": T0, "p0": p0,
+                    "v0": V0, "v4": V4, "t9": self._temperature(h9, p0, X)}
         sf = (1 + f) * v9 - V0
         F = mdot0 * sf
         wf = mdot0 * f

@@ -67,3 +67,44 @@ def test_ascent_replay_page(tmp_path):
     assert len(m["t"]) == len(m["lat"]) == len(m["alt"]) and m["events"]
     assert m["color"] != data["models"][1]["color"]
     assert "__" not in re.sub(r'id="data">.*?</script>', "", page, flags=re.DOTALL)  # all filled
+
+
+def test_site_pages():
+    import json
+    import re
+
+    from aerosim.plots import site
+    t = np.linspace(0, 10, 50)
+    pos = np.c_[t * 10, np.zeros_like(t), 1000 - t * 90]
+    model = {"name": "B <1>", "t": t, "pos": pos, "channels": {"alt": pos[:, 2], "thr": np.r_[np.full(49, 0.5), np.nan]},
+             "events": [("Touchdown", 10.0)], "throttle": np.full(50, 0.5), "thrust_dir": np.tile([0, 0, 1.0], (50, 1))}
+    page = site.scene_replay_html([model], "Landing & test", cards=[{"k": "alt", "label": "altitude", "d": 0}],
+                                  charts=[{"k": "alt", "label": "Altitude"}], body="booster",
+                                  vehicle={"length": 47, "diameter": 3.66}, current="landing.html")
+    data = json.loads(re.search(r'id="data">(.*?)</script>', page, re.DOTALL).group(1))
+    assert data["models"][0]["ch"]["thr"][-1] is None                 # NaN written as a gap, valid JSON
+    assert "<title>Landing &amp; test</title>" in page and 'aria-current=page' in page
+    assert "http" not in page.split('id="data"')[0]                   # offline: no network references
+    hub = site.hub_html([{"href": "landing.html", "title": "Landing", "text": "x", "stats": {"miss, m": "0.0"}}])
+    assert 'href="landing.html"' in hub
+
+
+def test_engine_model_geometry():
+    pytest.importorskip("skfmm")
+    from aerosim.plots.engine_models import nozzle_fields
+    from aerosim.propulsion.solid.grains import make_grain
+    b = make_grain({"type": "bates", "diameter": 0.05, "length": 0.09, "core_diameter": 0.02})
+    hole = b.port_outline(0.005)["holes"][0]
+    assert np.hypot(*hole.T) == pytest.approx(0.015)               # core radius + web
+    assert b.port_outline(b.web_max)["holes"] == []                 # burned out
+    f = make_grain({"type": "finocyl", "diameter": 0.05, "length": 0.09, "core_diameter": 0.016,
+                    "fin_length": 0.008, "fin_width": 0.003, "num_fins": 6})
+    loops = f.port_outline(0.0)["holes"]
+    area = sum(0.5 * abs(np.dot(l[:, 0], np.roll(l[:, 1], 1)) - np.dot(l[:, 1], np.roll(l[:, 0], 1))) for l in loops)
+    assert area == pytest.approx(f.port_area(0.0), rel=0.03)         # outline encloses the port area
+    x = np.linspace(-0.1, 0.3, 41)
+    r = 0.05 + np.where(x < 0, -x * 0.5, x * 0.6)                   # throat at x = 0
+    fl = nozzle_fields(x, r, 3500.0, 10e6, 1.2)
+    i = int(np.argmin(r))
+    assert fl["M"][i] == pytest.approx(1.0) and fl["M"][0] < 1 < fl["M"][-1]
+    assert fl["T"][0] > fl["T"][i] > fl["T"][-1] and fl["p"][0] > fl["p"][-1]

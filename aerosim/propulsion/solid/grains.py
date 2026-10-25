@@ -74,6 +74,16 @@ class Grain:
     def port_area(self, w: float) -> float:
         raise NotImplementedError
 
+    def port_outline(self, w: float, n: int = 96) -> dict[str, list[np.ndarray]]:
+        """Cross-section after a web ``w``: {"holes": port boundary loops, "islands": loops of
+        free-standing propellant inside the port}, each an (k, 2) array in metres."""
+        return {"holes": [], "islands": []}
+
+
+def _circle(r: float, n: int) -> np.ndarray:
+    a = np.linspace(0, 2 * math.pi, n, endpoint=False)
+    return np.c_[r * np.cos(a), r * np.sin(a)]
+
 
 @dataclass
 class Bates(Grain):
@@ -89,6 +99,10 @@ class Bates(Grain):
 
     def port_area(self, w):
         return math.pi / 4 * min(self.core_diameter + 2 * w, self.diameter) ** 2
+
+    def port_outline(self, w, n=96):
+        r = self.core_diameter / 2 + w
+        return {"holes": [_circle(r, n)] if r < self.diameter / 2 else [], "islands": []}
 
 
 @dataclass
@@ -113,6 +127,11 @@ class RodAndTube(Grain):
         rod = math.pi / 4 * max(self.rod_diameter - 2 * w, 0.0) ** 2
         return self.case_area - max(tube, 0.0) - rod
 
+    def port_outline(self, w, n=96):
+        r_tube, r_rod = self.core_diameter / 2 + w, self.rod_diameter / 2 - w
+        return {"holes": [_circle(r_tube, n)] if r_tube < self.diameter / 2 else [],
+                "islands": [_circle(r_rod, n)] if r_rod > 0 else []}
+
 
 @dataclass
 class EndBurner(Grain):
@@ -130,6 +149,7 @@ class EndBurner(Grain):
 
 
 _MAP_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, float]] = {}
+_FIELD_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}   # axis, dist, inside
 
 
 @dataclass
@@ -158,9 +178,10 @@ class MapGrain(Grain):
         if self._tables is not None:
             return self
         key = self._key()
-        if key not in _MAP_CACHE:
+        if key not in _MAP_CACHE or key not in _FIELD_CACHE:
             _MAP_CACHE[key] = self._compute()
         self._tables = _MAP_CACHE[key]
+        self._field = _FIELD_CACHE[key]
         self.radial_web = float(self._tables[3])
         return self
 
@@ -188,6 +209,7 @@ class MapGrain(Grain):
             for c in measure.find_contours(dist, w, mask=inside):
                 perim[i] += np.sum(np.hypot(*np.diff(c, axis=0).T)) * dx
         area[-1] = self.case_area
+        _FIELD_CACHE[self._key()] = (ax, dist, inside)
         return webs, perim, area, web_max
 
     def core_perimeter(self, w):
@@ -197,6 +219,17 @@ class MapGrain(Grain):
     def port_area(self, w):
         webs, _, area, _ = self.build()._tables
         return float(np.interp(w, webs, area, right=self.case_area))
+
+    def port_outline(self, w, n=96):
+        """Level set dist == w of the regression map (marching squares)."""
+        measure = require("skimage.measure", "grains")
+        ax, dist, inside = self.build()._field
+        if w >= self.radial_web:
+            return {"holes": [], "islands": []}
+        dx = ax[1] - ax[0]
+        loops = [np.c_[ax[0] + c[:, 1] * dx, ax[0] + c[:, 0] * dx]
+                 for c in measure.find_contours(dist, max(w, 1e-9), mask=inside) if len(c) > 8]
+        return {"holes": loops, "islands": []}
 
     @property
     def web_max(self) -> float:

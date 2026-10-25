@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroSim results</title><style>
+:root{--surface:#1a1a19;--page:#0d0d0d;--ink:#f0efec;--ink2:#c3c2b7;--muted:#898781;
+--grid:#2c2c2a;--axis:#383835;--accent:#3987e5}
+*{box-sizing:border-box}html,body{margin:0;background:var(--page);color:var(--ink);
+font:14px/1.45 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif}
+a{color:var(--ink)}
+nav.top{display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;padding:10px 20px;
+background:var(--surface);border-bottom:1px solid var(--grid);font-size:13px}
+nav.top b{font-weight:650;margin-right:8px}
+nav.top a{color:var(--ink2);text-decoration:none;padding:2px 0;border-bottom:2px solid transparent}
+nav.top a:hover{color:var(--ink)}nav.top a[aria-current]{color:var(--ink);border-color:var(--accent)}
+.card{border:1px solid var(--grid);border-radius:8px;padding:10px 12px;margin-bottom:10px;
+background:var(--surface)}
+.card h2{margin:0 0 6px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.sw{width:12px;height:12px;border-radius:3px;flex:none}
+.card .ph{margin-left:auto;font-weight:500;color:var(--ink2)}
+.tm{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px}
+.tm div{font-variant-numeric:tabular-nums;font-size:15px;font-weight:600}
+.tm span{display:block;font-size:11px;font-weight:400;color:var(--ink2)}
+h3{margin:16px 0 4px;font-size:13px;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink2);margin-bottom:2px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;
+vertical-align:middle}
+.cw{position:relative}canvas.chart{width:100%;height:170px;display:block}
+.tip{position:absolute;pointer-events:none;background:var(--page);border:1px solid var(--axis);
+border-radius:6px;padding:5px 8px;font-size:12px;white-space:nowrap;display:none;z-index:5;
+font-variant-numeric:tabular-nums}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+button,select{font:inherit;color:var(--ink);background:var(--page);border:1px solid var(--axis);
+border-radius:6px;padding:5px 12px;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid
+var(--accent);outline-offset:2px}
+label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;cursor:pointer}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--grid)}
+th:first-child,td:first-child{text-align:left}th{color:var(--ink2);font-weight:500}
+td.good{color:var(--ink)}td.dev{color:var(--ink2)}
+.muted{color:var(--ink2)}
+
+main{max-width:1100px;margin:0 auto;padding:22px 20px 40px}
+main>h1{font-size:24px;margin:4px 0 2px}main>p{color:var(--ink2);margin:0 0 18px;max-width:780px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+a.tile{display:block;text-decoration:none;border:1px solid var(--grid);border-radius:10px;
+background:var(--surface);padding:14px 16px;color:var(--ink)}
+a.tile:hover{border-color:var(--accent)}a.tile h2{margin:0 0 4px;font-size:16px}
+a.tile p{margin:0 0 10px;color:var(--ink2);font-size:13px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.kv div{font-variant-numeric:tabular-nums;
+font-weight:600}.kv span{display:block;font-size:11px;font-weight:400;color:var(--ink2)}
+</style></head><body>
+<nav class="top"><b>AeroSim</b><a href="index.html" aria-current=page>Overview</a><a href="rockot.html">Rockot ascent</a><a href="landing.html">Booster landing</a><a href="f16.html">F-16 flight</a><a href="hybrid.html">Hybrid rocket</a><a href="engines.html">Engines</a><a href="engines3d.html">Engine models</a></nav>
+<main><h1>AeroSim results</h1>
+<p>Flights and engines modelled in AeroSim. 3D replays run in sped-up time; drag to orbit, scroll to
+zoom. Every page works offline.</p><div class="cards"><a class="tile" href="rockot.html"><h2>Rockot ascent</h2><p>Calibrated and first-principles models of the Rockot / Breeze-KM reference mission, on a globe.</p><div class="kv"><div>648 × 676<span>final orbit, km</span></div><div>86.3°<span>inclination</span></div><div>2<span>models</span></div></div></a><a class="tile" href="landing.html"><h2>Booster landing</h2><p>Fuel-optimal landing burn by convex optimisation, re-solved in flight against drag and wind.</p><div class="kv"><div>1.7<span>touchdown, m/s</span></div><div>0.0<span>miss, m</span></div><div>2.84<span>propellant, t</span></div></div></a><a class="tile" href="f16.html"><h2>F-16 flight</h2><p>JSBSim F-16 airframe flown on an AeroSim turbojet deck by an altitude, Mach and heading autopilot.</p><div class="kv"><div>3993<span>final altitude, m</span></div><div>0.800<span>final Mach</span></div><div>204<span>fuel used, kg</span></div></div></a><a class="tile" href="hybrid.html"><h2>Hybrid sounding rocket</h2><p>N2O / HTPB hybrid with tank blowdown and O/F shift, flown point-mass.</p><div class="kv"><div>9.9<span>apogee, km</span></div><div>21.8<span>impulse, kN·s</span></div><div>232<span>Isp, s</span></div></div></a><a class="tile" href="engines.html"><h2>Engines</h2><p>Liquid cycles, regen cooling, the hybrid burn, ramjet / scramjet and pyCycle gas turbines.</p><div class="kv"><div>315<span>F-1 Isp, s</span></div><div>336<span>RD-180 Isp, s</span></div><div>915<span>max wall, K</span></div></div></a><a class="tile" href="engines3d.html"><h2>Engine models</h2><p>3D cutaways of every engine, coloured by gas temperature, pressure or Mach; solid and hybrid motors burn on a time slider.</p><div class="kv"><div>11<span>engines</span></div><div>5<span>liquid</span></div><div>4<span>air-breathing</span></div></div></a></div></main>
+</body></html>

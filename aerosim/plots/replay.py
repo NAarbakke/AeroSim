@@ -67,8 +67,9 @@ def _importmap() -> str:
 
 
 def replay_html(results, site: tuple[float, float], title: str = "Ascent replay",
-                subtitle: str = "", theme: str = "dark") -> str:
-    """The replay page as an HTML string (see module docstring)."""
+                subtitle: str = "", theme: str = "dark", nav: str = "") -> str:
+    """The replay page as an HTML string (see module docstring). ``nav``: optional navigation
+    bar HTML (``aerosim.plots.web.nav``) placed above the replay when it is part of a site."""
     if not isinstance(results, dict):
         results = {"Model": results}
     T = THEMES[theme]
@@ -83,13 +84,19 @@ def replay_html(results, site: tuple[float, float], title: str = "Ascent replay"
         if isinstance(v, str):
             page = page.replace(f"__{k.upper()}__", v)
     page = page.replace("__DATA__", json.dumps(data, separators=(",", ":")).replace("</", "<\\/"))
+    if nav:                                   # inside the results site: nav bar above the replay
+        from aerosim.plots.web import CSS, themed
+        css = (themed(CSS, theme) + "html,body{height:100%}body{display:flex;flex-direction:column}"
+               "#app{flex:1;height:auto;min-height:0}")
+        page = page.replace("</style>", css + "</style>", 1)
+        page = page.replace('<body>\n<div id="app">', f'<body>\n{nav}<div id="app">', 1)
     return page.replace("__IMPORTMAP__", _importmap())
 
 
 def write_replay(results, path, site: tuple[float, float], title: str = "Ascent replay",
-                 subtitle: str = "", theme: str = "dark") -> None:
+                 subtitle: str = "", theme: str = "dark", nav: str = "") -> None:
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(replay_html(results, site, title, subtitle, theme))
+        fh.write(replay_html(results, site, title, subtitle, theme, nav))
 
 
 _PAGE = r"""<!doctype html>

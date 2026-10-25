@@ -81,6 +81,25 @@ def _psf_fluid(psf, spec, kind: str):
             comps[0].temperature)
 
 
+def chamber_contour(throat_radius: float, expansion_ratio: float, l_star: float = 1.0,
+                    chamber_aspect_ratio: float = 1.5) -> tuple[np.ndarray, np.ndarray, float]:
+    """Chamber + Rao bell contour (pyskyfire): (x, r) in m with the throat at x = 0, and the
+    chamber aspect ratio used. Chamber volume is L* times the throat area; pyskyfire picks the
+    chamber radius for the aspect ratio, and not every ratio has a contour for a given volume
+    and throat, so nearby ratios are tried in turn."""
+    psf = require("pyskyfire", "liquid")
+    v_c = l_star * math.pi * throat_radius**2
+    for ar in dict.fromkeys([float(chamber_aspect_ratio), 1.5, 1.2, 1.0, 0.8, 2.0, 0.6, 0.5, 2.5, 0.4, 3.0, 0.3]):
+        try:
+            xs, rs = psf.regen.contour.generate_contour(
+                V_c=v_c, AR_c=ar, r_t=throat_radius, area_ratio=float(expansion_ratio),
+                nozzle="rao", R_1f=1.5, R_2f=2.0, R_3f=0.382)
+            return np.asarray(xs, float), np.asarray(rs, float), ar
+        except ValueError:
+            continue
+    raise AerosimError(f"no chamber contour for L*={l_star} at any aspect ratio 0.3-3")
+
+
 def regen_cooling(oxidizer, fuel, mixture_ratio: float, chamber_pressure: float, thrust: float,
                   expansion_ratio: float, ambient_pressure: float = 101_325.0, l_star: float = 1.0, chamber_aspect_ratio: float = 1.5,
                   coolant: str = "fuel", coolant_fraction: float = 1.0,
@@ -119,18 +138,7 @@ def regen_cooling(oxidizer, fuel, mixture_ratio: float, chamber_pressure: float,
     t_in = coolant_inlet_temperature or (t_fu if coolant == "fuel" else t_ox)
     p_in = coolant_inlet_pressure or 1.5 * chamber_pressure
 
-    # chamber volume from L*; pyskyfire picks the chamber radius for the aspect ratio. Not
-    # every ratio has a contour for a given volume and throat, so fall back to nearby ones.
-    for ar in dict.fromkeys([float(chamber_aspect_ratio), 1.5, 1.2, 1.0, 0.8, 2.0, 0.6, 2.5, 3.0]):
-        try:
-            xs, rs = psf.regen.contour.generate_contour(
-                V_c=at.V_c, AR_c=ar, r_t=at.r_t, area_ratio=float(expansion_ratio),
-                nozzle="rao", R_1f=1.5, R_2f=2.0, R_3f=0.382)
-            break
-        except ValueError:
-            continue
-    else:
-        raise AerosimError(f"no chamber contour for L*={l_star} at any aspect ratio 0.6-3")
+    xs, rs, ar = chamber_contour(at.r_t, expansion_ratio, l_star, chamber_aspect_ratio)
     contour = psf.regen.Contour(xs, rs, name="chamber")
     n = n_channels or max(20, int(2 * math.pi * at.r_t / 4e-3))
     mat = getattr(psf.common.solids, MATERIALS.get(material.lower(), material))

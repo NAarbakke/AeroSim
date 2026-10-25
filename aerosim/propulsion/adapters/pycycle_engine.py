@@ -189,6 +189,19 @@ TURBOFAN_DEFAULTS = {"altitude": 0.0, "mach": 1e-6, "thrust": 121e3, "t4": 1640.
                      "core_cv": 0.993, "bypass_cv": 0.994, "lp_nmech": 4666.0, "hp_nmech": 14700.0}
 
 
+# (station number, name, pyCycle flow port) in flow order
+STATIONS = {
+    "turbojet": [("0", "Free stream", "fc.Fl_O"), ("2", "Compressor face", "inlet.Fl_O"),
+                 ("3", "Compressor exit", "comp.Fl_O"), ("4", "Turbine inlet", "burner.Fl_O"),
+                 ("5", "Turbine exit", "turb.Fl_O"), ("9", "Nozzle exit", "nozz.Fl_O")],
+    "turbofan": [("0", "Free stream", "fc.Fl_O"), ("2", "Fan face", "inlet.Fl_O"),
+                 ("21", "Fan exit, core", "splitter.Fl_O1"), ("13", "Fan exit, bypass", "splitter.Fl_O2"),
+                 ("3", "HPC exit", "hpc.Fl_O"), ("4", "HPT inlet", "burner.Fl_O"),
+                 ("45", "LPT inlet", "hpt.Fl_O"), ("5", "LPT exit", "lpt.Fl_O"),
+                 ("9", "Core nozzle exit", "core_nozz.Fl_O"), ("19", "Bypass nozzle exit", "byp_nozz.Fl_O")],
+}
+
+
 @registry.register("airbreathing", "pycycle")
 class PyCycleEngine:
     """Gas-turbine design point + off-design points on pyCycle's component maps (SI units)."""
@@ -286,8 +299,8 @@ class PyCycleEngine:
         from openmdao.api import AnalysisError
         try:
             self._prob.run_model()
-        except AnalysisError as e:
-            raise AerosimError(f"pyCycle did not converge: {e}") from e
+        except (AnalysisError, RuntimeError) as e:    # RuntimeError: singular Jacobian off the maps
+            raise AerosimError(f"pyCycle did not converge: {str(e)[:200]}") from e
 
     def as_subsystem(self):
         """The pyCycle problem (design + off-design point) for coupling in OpenMDAO."""
@@ -309,6 +322,22 @@ class PyCycleEngine:
                     "lp_rpm": g("LP_Nmech", "rpm"), "hp_rpm": g("HP_Nmech", "rpm")}
         else:
             out |= {"comp_pr": g("comp.PR"), "rpm": g("Nmech", "rpm")}
+        return out
+
+    def stations(self, point: str = "DESIGN") -> list[dict]:
+        """Flow-station states along the engine: total T (K) and p (Pa), static T, Mach, area (m^2)."""
+        if self._prob is None:
+            self.build()
+        p, out = self._prob, []
+        for num, name, path in STATIONS[self.architecture]:
+            g = lambda q, u=None, path=path: float(p.get_val(f"{point}.{path}:{q}", units=u)[0])
+            st = {"station": num, "name": name, "tt": g("tot:T", "K"), "pt": g("tot:P", "Pa"),
+                  "ts": g("stat:T", "K"), "mach": g("stat:MN")}
+            try:
+                st["area"] = g("stat:area", "m**2")
+            except (KeyError, ValueError):
+                st["area"] = float("nan")
+            out.append(st)
         return out
 
     def design_point(self) -> dict[str, float]:

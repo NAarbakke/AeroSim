@@ -49,6 +49,7 @@ class HybridHistory:
     oxidizer_used: float
     fuel_used: float
     end_reason: str
+    liquid_fraction: np.ndarray | None = None   # liquid N2O volume / tank volume (tank feed)
 
 
 @dataclass
@@ -155,8 +156,11 @@ class HybridMotor:
                 else:
                     rho, h = s.rhomass(), s.hmass()
                 ox_of = lambda pc, rho=rho, pt=p_tank: tank.cda * math.sqrt(2 * rho * max(pt - pc, 0.0))
+                q = s.Q()
+                fill = ((1 - q) * m / s.saturated_liquid_keyed_output(tank._CP.iDmass) / tank.volume
+                        if 0.0 <= q < 1.0 else 0.0)
             else:
-                p_tank, h = float("nan"), 0.0
+                p_tank, h, fill = float("nan"), 0.0, float("nan")
                 ox_of = lambda pc, left=ox_left: self.oxidizer_mass_flow if left > 0 else 0.0
 
             def resid(pc, ox_of=ox_of):
@@ -176,7 +180,7 @@ class HybridMotor:
             rdot, mf = flows(pc, mo)
             of = mo / mf
             cf = self._cstar_cf(of, pc)[1]
-            rows.append((t, cf * pc * At, pc, of, mo, mf, r, p_tank))
+            rows.append((t, cf * pc * At, pc, of, mo, mf, r, p_tank, fill))
             if pc < self.min_chamber_pressure and t > 0.5:
                 reason = "chamber pressure below cutoff"
                 break
@@ -199,7 +203,7 @@ class HybridMotor:
         a = np.asarray(rows)
         dt = np.diff(a[:, 0], append=a[-1, 0] + self.dt)
         return HybridHistory(a[:, 0], a[:, 1], a[:, 2], a[:, 3], a[:, 4], a[:, 5], a[:, 6], a[:, 7],
-                             float(np.sum(a[:, 4] * dt)), float(np.sum(a[:, 5] * dt)), reason)
+                             float(np.sum(a[:, 4] * dt)), float(np.sum(a[:, 5] * dt)), reason, a[:, 8])
 
     def thrust_curve(self) -> ThrustCurve:
         h = self.simulate()
