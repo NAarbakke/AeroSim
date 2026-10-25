@@ -192,5 +192,5 @@ def theme_tag(theme: str = "dark") -> str:
                      "dark": theme == "dark"}, "theme")
 
 
-def importmap_tag() -> str:
-    return f'<script type="importmap">{_importmap()}</script>'
+def importmap_tag(gltf: bool = False) -> str:
+    return f'<script type="importmap">{_importmap(gltf)}</script>'

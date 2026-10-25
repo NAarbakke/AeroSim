@@ -56,13 +56,17 @@ def _pack(res, max_points: int = 4000) -> dict:
             "phases": list(res.phases), "events": [[_event_label(k), t] for k, t in ev.items()]}
 
 
-def _importmap() -> str:
-    """three.js and OrbitControls inlined as data: URLs, so the page needs no network."""
+def _importmap(gltf: bool = False) -> str:
+    """three.js and OrbitControls inlined as data: URLs, so the page needs no network
+    (``gltf``: also GLTFLoader and the BufferGeometryUtils it imports, about 190 kB more)."""
     def url(name):
         b = resources.files("aerosim.plots").joinpath(f"data/three/{name}").read_bytes()
         return "data:text/javascript;base64," + base64.b64encode(b).decode("ascii")
     imports = {"three": url("three.module.min.js"),
                "three/addons/controls/OrbitControls.js": url("OrbitControls.js")}
+    if gltf:
+        imports |= {"three/addons/loaders/GLTFLoader.js": url("GLTFLoader.js"),
+                    "three/addons/utils/BufferGeometryUtils.js": url("BufferGeometryUtils.js")}
     return json.dumps({"imports": imports}, separators=(",", ":"))
 
 

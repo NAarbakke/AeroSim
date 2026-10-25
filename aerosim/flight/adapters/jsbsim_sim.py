@@ -81,6 +81,28 @@ def prepare_aircraft(model: str, root_dir: str | Path | None = None) -> tuple[Pa
     return root, len(locs), len(prop.findall("tank"))
 
 
+def apply_deck(fdm, deck: EngineDeck, h: float, mach: float, power: float, n_thrust: int,
+               n_tanks: int, dt: float) -> tuple[float, float]:
+    """Set each external thrust force from the deck and draw dt of fuel from the tanks
+    (first tank first). Returns (thrust per engine N, fuel flow per engine kg/s); a dry
+    tank set flames out (zero thrust)."""
+    F, wf = deck.lookup(h, mach, power)
+    for i in range(n_thrust):
+        fdm[f"external_reactions/aerosim_thrust{i}/magnitude"] = max(F, 0.0) / LBF
+    burn = max(wf, 0.0) * n_thrust * dt / LB
+    for i in range(n_tanks):
+        c = fdm[f"propulsion/tank[{i}]/contents-lbs"]
+        if c > 0 and burn > 0:
+            take = min(c, burn)
+            fdm[f"propulsion/tank[{i}]/contents-lbs"] = c - take
+            burn -= take
+    if burn > 0:                                  # tanks dry: flame-out
+        for i in range(n_thrust):
+            fdm[f"external_reactions/aerosim_thrust{i}/magnitude"] = 0.0
+        return 0.0, 0.0
+    return F, wf
+
+
 def engine_deck_to_jsbsim_xml(deck: EngineDeck, path: str | Path) -> Path:
     """Write the deck as JSBSim <function> tables (thrust, fuel flow vs Mach and altitude per
     power setting), for use in a hand-built JSBSim engine; the simulator below does not need it."""
@@ -171,19 +193,7 @@ class JSBSimSim:
                     if 0.0 < raw < 1.0 or raw * err < 0:      # anti-windup: hold when saturated
                         mach_int += err * self.dt
                     power = float(np.clip(p0 + ap["k_mach"] * err + ap["ki_mach"] * mach_int, 0, 1))
-                F, wf = deck.lookup(h, mach, power)
-                for i in range(n_thrust):
-                    fdm[f"external_reactions/aerosim_thrust{i}/magnitude"] = max(F, 0.0) / LBF
-                burn = max(wf, 0.0) * n_thrust * self.dt / LB
-                for i in range(n_tanks):
-                    c = fdm[f"propulsion/tank[{i}]/contents-lbs"]
-                    if c > 0 and burn > 0:
-                        take = min(c, burn)
-                        fdm[f"propulsion/tank[{i}]/contents-lbs"] = c - take
-                        burn -= take
-                if burn > 0:                      # tanks dry: flame-out
-                    for i in range(n_thrust):
-                        fdm[f"external_reactions/aerosim_thrust{i}/magnitude"] = 0.0
+                F, _ = apply_deck(fdm, deck, h, mach, power, n_thrust, n_tanks, self.dt)
             if not fdm.run():
                 break
             if step % self.record_every == 0:

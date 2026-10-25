@@ -13,6 +13,7 @@ pip install -e '.[control,optim]'     # python-control, OpenMDAO + Dymos
 pip install -e '.[rocket,weather]'    # add RocketPy + Herbie
 pip install -e '.[grains,plot]'       # non-circular solid grains, matplotlib plots
 pip install -e '.[all,dev]'           # everything on PyPI (except turboflow, see below)
+pip install tifffile pyproj scikit-image cvxpy jsbsim   # terrain flights (aerosim.terrain)
 aerosim run configs/solid/knsb_isa.yaml
 aerosim run configs/solid/finocyl_grain_motor.yaml
 aerosim backends
@@ -98,13 +99,19 @@ aerosim/
 │   ├── controllers.py    AirbrakeApogeeController, AttitudeHoldTVC (gain-scheduled)
 │   ├── design.py         python-control: TVC plant, pole placement, LQR, margins, discretize
 │   └── landing.py        convex powered-descent guidance (cvxpy) + closed-loop landing sim
+├── terrain/          real terrain for low-level flight: dem.py (Kartverket 1 m DTM via WCS,
+│                     Copernicus GLO-30 tiles, local metric grid) · route.py (least-cost valley
+│                     routes, turn-radius smoothing, terrain-following altitude profile) ·
+│                     flight.py (JSBSim aircraft flying a route at low level over the DEM)
 ├── optimization/     mdao.py (OpenMDAO components) · trajectory.py (Dymos optimal ascent)
 ├── missions/         YAML-driven runner wiring propulsion -> atmosphere -> flight
 ├── plots/            matplotlib charts: thrust curves, motor history, grain burnback,
 │                     flight profiles, ascent small multiples, ground tracks;
 │                     replay.py: animated 3D ascent replay as a standalone HTML page;
 │                     site.py + web.py: results site (local-frame 3D replays, engines page);
-│                     engine_models.py + engines3d.py: 3D engine cutaways coloured by flow fields
+│                     engine_models.py + engines3d.py: 3D engine cutaways coloured by flow fields;
+│                     terrain_site.py: low-level flights over a terrain mesh (glTF F-16 from
+│                     data/f16, CC BY 4.0, see its ATTRIBUTION.md)
 └── cli.py            aerosim run | backends | atm
 configs/             example YAML mission configs (aerosim run <file>)
 ├── solid/            knsb_isa (base install) · knsb_gfs (live winds) · apcp_cea (CEA propellant)
@@ -117,11 +124,15 @@ configs/             example YAML mission configs (aerosim run <file>)
 examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
                       rockot_ascent (calibrate + fly the Rockot reference mission) ·
                       rockot_first_principles (predict it, then check) · rockot_replay (3D) ·
-                      build_site (all results as an offline website, docs/site/)
+                      build_site (all results as an offline website, docs/site/) ·
+                      build_terrain_site (F-16 low level over Norway and Novaya Zemlya, docs/site/terrain*.html) ·
+                      bake_f16_model (the F-16 glTF for those pages)
+data/terrain/         height grids for the terrain flights (Kartverket, Copernicus; 10 MB, licences
+                      in its README), so the terrain site builds offline
 tests/                pytest, one folder per layer (core, thermo, propulsion, ...)
 docs/                 architecture.md · licensing.md · references/rockot (User's Guide) ·
                       briefings/rockot (PDF + PPTX briefing, 3D replay page, generators) ·
-                      site/ (results website: open index.html)
+                      site/ (results website, terrain flights included: open index.html)
 ```
 
 `adapters/` folders hold wrappers around external libraries. Everything outside them is a
@@ -156,6 +167,8 @@ built-in model.
 | Flight | Multi-stage orbital ascent (rotating oblate Earth, staging, fairing, restarts) | working; Rockot reference mission reproduced, see briefing |
 | Flight | Trajectory optimisation (`optimize_program`), drag from geometry | working; first-principles Rockot reaches orbit, burnout speeds within 2.5 % of the guide |
 | Flight | JSBSim airframe on an AeroSim engine deck, altitude / Mach / heading autopilot | working; F-16 holds 4,000 m, Mach 0.80, 90 deg |
+| Terrain | Kartverket DTM (Norway) and Copernicus GLO-30 (global) on a local grid | working; the two agree over Lysefjorden to a median 0.1 m, rms 3.9 m above the tree line |
+| Terrain | Valley routes, terrain-following profile (LP), JSBSim F-16 terrain following | working; four routes at 100 m set clearance, lowest 95.9 m above ground |
 | GNC | PID / actuators / sensors, air-brake apogee control, TVC attitude hold | working |
 | GNC | python-control design: pole placement, LQR, margins | working |
 | GNC | Booster landing: convex powered-descent guidance, replanned with drag and wind | working; Falcon 9-class touchdown under 2 m/s, on target |

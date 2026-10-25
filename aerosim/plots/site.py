@@ -21,6 +21,7 @@ from aerosim.plots.web import CHART_JS, CSS, data_tag, importmap_tag, nav, theme
 
 PAGES = [("Overview", "index.html"), ("Rockot ascent", "rockot.html"),
          ("Booster landing", "landing.html"), ("F-16 flight", "f16.html"),
+         ("Terrain flights", "terrain.html"),
          ("Hybrid rocket", "hybrid.html"), ("Engines", "engines.html"), ("Engine models", "engines3d.html")]
 
 

@@ -121,6 +121,15 @@ def f16():
             "fuel used, kg": f"{m['fuel_used']:.0f}"}
 
 
+def terrain_stats() -> dict:
+    """Hub tile for the terrain pages, which ``build_terrain_site.py`` writes into this site."""
+    import json
+    path = ROOT / "outputs" / "site" / "terrain.json"
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {"regions": "2", "flights": "4", "build": "build_terrain_site.py"}
+
+
 def hybrid():
     from aerosim.missions.runner import run_mission
     out = run_mission(ROOT / "configs" / "hybrid" / "n2o_htpb_sounding.yaml")
@@ -441,6 +450,9 @@ def main(argv=None):
          "optimisation, re-solved in flight against drag and wind.", "stats": land},
         {"href": "f16.html", "title": "F-16 flight", "text": "JSBSim F-16 airframe flown on an AeroSim "
          "turbojet deck by an altitude, Mach and heading autopilot.", "stats": f16s},
+        {"href": "terrain.html", "title": "Terrain flights", "text": "The JSBSim F-16 terrain-following at "
+         "100 m through Lysefjorden and across Novaya Zemlya, on Kartverket and Copernicus terrain.",
+         "stats": terrain_stats()},
         {"href": "hybrid.html", "title": "Hybrid sounding rocket", "text": "N2O / HTPB hybrid with tank "
          "blowdown and O/F shift, flown point-mass.", "stats": {
              "apogee, km": f"{hy.apogee / 1e3:.1f}", "impulse, kN·s": f"{tc.total_impulse / 1e3:.1f}",
