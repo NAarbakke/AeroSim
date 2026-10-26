@@ -100,6 +100,8 @@ aerosim/
 ├── atmosphere/       standard.py (US76, exponential above 86 km) · profile.py · weather.py
 ├── flight/           vehicles.py (RocketVehicle, AircraftVehicle, Stage, LaunchVehicle)
 │   ├── aero.py           launcher drag build-up from geometry (friction, wave, base)
+│   ├── stability.py      CG as tanks drain and stages drop, Barrowman CP, static margin,
+│   │                     pitch divergence and steering needed along an ascent
 │   ├── orbits.py         Earth model (WGS-84, J2, rotation), orbit elements
 │   ├── rocket/           point_mass.py (3-DOF) · planar.py (attitude, TVC) ·
 │   │                     orbital_ascent.py (multi-stage launcher to orbit; programme fitting
@@ -123,6 +125,7 @@ aerosim/
 │                     replay.py: animated 3D ascent replay as a standalone HTML page;
 │                     site.py + web.py: results site (local-frame 3D replays, engines page);
 │                     engine_models.py + engines3d.py: 3D engine cutaways coloured by flow fields;
+│                     ascent_closeup.py: Rockot up close through the atmosphere's layers;
 │                     terrain_site.py: low-level flights over a terrain mesh (glTF F-16 from
 │                     data/f16, CC BY 4.0, see its ATTRIBUTION.md)
 └── cli.py            aerosim run | backends | atm
@@ -192,6 +195,8 @@ built-in model.
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
 | Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |
 | Plots | 3D ascent replay (`aerosim.plots.replay`, three.js page, works offline) | working |
+| Flight | Pitch stability along the ascent (`aerosim.flight.stability`): CG from a mass layout with draining tanks, Barrowman CP, static margin, time to double, gimbal per degree of AoA | working; layout mass matches the simulator to 1e-14; Rockot −6.1 to −2.6 calibers, doubling every 0.43 s at max-Q |
+| Plots | Ascent close-up (`aerosim.plots.ascent_closeup`): three.js Rockot model, sky / Earth scattering shader, atmospheric layers, drag, max-Q, heating, thrust gain and Δv losses | working; US76 thermosphere temperatures match the 1976 tables within 0.6 K |
 | Plots | Results site (`aerosim.plots.site`, `examples/build_site.py`): landing, F-16 and hybrid 3D replays, engines page | working |
 | Plots | 3D engine models (`aerosim.plots.engine_models`): liquid chambers (pyskyfire contour, isentropic gas fields, wall temperature), regressing solid grains, hybrid port and tank, ramjet / scramjet and gas-turbine cutaways | working |
 

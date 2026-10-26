@@ -78,6 +78,25 @@ def isa(altitude: float) -> tuple[float, float, float]:
     return p, t, p / (_R * t)
 
 
+def kinetic_temperature(altitude: float) -> float:
+    """US76 kinetic temperature (K) at geometric altitude 0-1000 km, including the thermosphere
+    above 86 km (where ``isa`` holds the 86 km value for its drag densities). For display:
+    86-91 km isothermal, 91-110 km elliptical, 110-120 km linear, 120-1000 km exponential
+    approach to the exospheric 1000 K (US Standard Atmosphere 1976, section 1.2.5)."""
+    z = altitude / 1e3
+    if z <= 86.0:
+        return isa(altitude)[1]
+    if z <= 91.0:
+        return 186.8673
+    if z <= 110.0:
+        return 263.1905 - 76.3232 * math.sqrt(max(1.0 - ((z - 91.0) / 19.9429) ** 2, 0.0))
+    if z <= 120.0:
+        return 240.0 + 12.0 * (z - 110.0)
+    re = _RE / 1e3
+    xi = (z - 120.0) * (re + 120.0) / (re + z)
+    return 1000.0 - (1000.0 - 360.0) * math.exp(-0.01875 * xi)
+
+
 @registry.register("atmosphere", "isa")
 class StandardAtmosphere:
     """ISA with an optional power-law wind profile: speed(z) = ref_speed * (z/ref_alt)^alpha."""

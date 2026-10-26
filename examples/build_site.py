@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "examples"))
 from aerosim.atmosphere.standard import isa
 from aerosim.core.units import G0
 from aerosim.plots import site
+from aerosim.plots.ascent_closeup import mach1_time
 from aerosim.plots.web import nav
 
 T0 = time.time()
@@ -54,7 +55,18 @@ def rockot():
                                      "Rockot / Breeze-KM ascent from Plesetsk",
                                      "650 km circular, 86.6°  ·  AeroSim orbital_ascent",
                                      nav=nav(site.PAGES, "rockot.html")))
+    rockot_closeup(res["First principles"], veh_fp)
     return res["First principles"]
+
+
+def rockot_closeup(res, veh):
+    from aerosim.flight.stability import ROCKOT_LAYOUT
+    from aerosim.plots.ascent_closeup import ascent_closeup_html
+    t_end = res.events.get("Breeze-KM_burn1_end", res.time[-1]) + 30
+    write("rockot-closeup.html", ascent_closeup_html(
+        res, veh, title="Rockot through the atmosphere",
+        subtitle="First-principles Rockot / Breeze-KM from Plesetsk, up close  ·  AeroSim orbital_ascent",
+        nav=nav(site.PAGES, "rockot-closeup.html"), t_end=t_end, layout=ROCKOT_LAYOUT))
 
 
 def landing():
@@ -446,6 +458,10 @@ def main(argv=None):
          "Rockot / Breeze-KM reference mission, on a globe.", "stats": {
              "final orbit, km": f"{orbit.perigee_alt / 1e3:.0f} × {orbit.apogee_alt / 1e3:.0f}",
              "inclination": f"{orbit.inclination:.1f}°", "models": "2"}},
+        {"href": "rockot-closeup.html", "title": "Rockot close-up", "text": "Follow the rocket up through the "
+         "layers of the atmosphere: drag, max-Q, Mach, heating, thrust gain and where the Δv goes.",
+         "stats": {"max-Q, kPa": f"{first.dynamic_pressure.max() / 1e3:.0f}",
+                   "Mach 1, s": f"{mach1_time(first.time, first.mach):.0f}", "layers": "8"}},
         {"href": "landing.html", "title": "Booster landing", "text": "Fuel-optimal landing burn by convex "
          "optimisation, re-solved in flight against drag and wind.", "stats": land},
         {"href": "f16.html", "title": "F-16 flight", "text": "JSBSim F-16 airframe flown on an AeroSim "

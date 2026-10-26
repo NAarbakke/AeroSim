@@ -69,6 +69,45 @@ def test_ascent_replay_page(tmp_path):
     assert "__" not in re.sub(r'id="data">.*?</script>', "", page, flags=re.DOTALL)  # all filled
 
 
+def test_us76_kinetic_temperature_matches_table():
+    from aerosim.atmosphere.standard import kinetic_temperature
+    # US Standard Atmosphere 1976, Table I (geometric altitude)
+    for z_km, T in [(0, 288.15), (11, 216.774), (50, 270.65), (100, 195.08), (150, 634.39),
+                    (200, 854.56), (300, 976.01), (500, 999.24)]:
+        assert kinetic_temperature(z_km * 1e3) == pytest.approx(T, abs=0.6)
+
+
+def test_ascent_closeup_page():
+    import json
+    import re
+
+    from aerosim.flight.rocket.orbital_ascent import AscentProgram, OrbitalAscentSim
+    from aerosim.flight.vehicles import LaunchVehicle, Stage
+    from aerosim.plots.ascent_closeup import ascent_closeup_html, ascent_physics
+
+    veh = LaunchVehicle(stages=[Stage("S1", 20_000, 2_000, 300, 120, isp_sl=270),
+                                Stage("S2", 4_000, 500, 330, 400, max_burns=2)],
+                        payload_mass=200, fairing_mass=100, diameter=1.5)
+    prog = AscentProgram(target_inclination=51.6, kick_angle=12.0, vertical_time=6,
+                         transfer_apogee=300e3, coast_after=100)
+    res = OrbitalAscentSim(45.0, 63.0, program=prog).run(veh)
+    d = ascent_physics(res, veh, t_end=400)
+    assert d["thrust"][0] < d["thrust_vac"][0]                       # back pressure at sea level
+    assert d["thrust"][d["h"] > 80e3][0] == pytest.approx(d["thrust_vac"][d["h"] > 80e3][0], rel=1e-3)
+    k = int(np.argmax(d["q"]))
+    assert d["drag"][k] > 0 and 5e3 < d["h"][k] < 20e3               # max-Q low in the atmosphere
+    for v in d["losses"].values():
+        assert v[0] == 0 and np.all(np.diff(v) >= -1e-9)
+    page = ascent_closeup_html(res, veh, title="Close <up>", t_end=400)
+    assert "<title>Close &lt;up&gt;</title>" in page
+    imap = json.loads(re.search(r'type="importmap">(.*?)</script>', page).group(1))["imports"]
+    assert all(u.startswith("data:text/javascript;base64,") for u in imap.values())  # offline
+    data = json.loads(re.search(r'id="data">(.*?)</script>', page, re.DOTALL).group(1))
+    names = [e[0] for e in data["events"]]
+    assert {"Liftoff", "Mach 1", "Max-Q", "Into the stratosphere", "Kármán line"} <= set(names)
+    assert len(data["f"]["t"]) == len(data["f"]["loss_drag"]) and data["layers"][0]["name"] == "Troposphere"
+
+
 def test_site_pages():
     import json
     import re
