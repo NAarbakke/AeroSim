@@ -1,0 +1,18 @@
+{
+ "key": "s2-summer",
+ "label": "Sentinel-2, summer",
+ "credit": "Contains modified Copernicus Sentinel data 2024",
+ "file": "s2-summer.jpg",
+ "width": 7334,
+ "height": 3066,
+ "source": "sentinel2",
+ "date": "2024-08-11",
+ "scenes": [
+  "S2A_39XWB_20240811_0_L2A",
+  "S2A_40XDG_20240811_0_L2A"
+ ],
+ "pixel_m": 15,
+ "coverage": 0.9999997776398551,
+ "gamma": 0.8,
+ "gain": 1.0
+}

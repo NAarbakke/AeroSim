@@ -1,0 +1,18 @@
+{
+ "key": "s2-snow",
+ "label": "Sentinel-2, early summer snow",
+ "credit": "Contains modified Copernicus Sentinel data 2022",
+ "file": "s2-snow.jpg",
+ "width": 7334,
+ "height": 3066,
+ "source": "sentinel2",
+ "date": "2022-06-03",
+ "scenes": [
+  "S2A_40XDG_20220603_0_L2A",
+  "S2A_39XWB_20220603_0_L2A"
+ ],
+ "pixel_m": 15,
+ "coverage": 0.9999758516882739,
+ "gamma": 1.0,
+ "gain": 1.0
+}

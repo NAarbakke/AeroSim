@@ -15,6 +15,11 @@ The terrain grids are in the repo (``data/terrain``, 10 MB, see its README), so 
 no network. ``--download`` fetches them again from Kartverket and Copernicus (about 200 MB of
 source tiles, cached in ``outputs/terrain``) and rewrites ``data/terrain``. Over Lysefjorden the
 Copernicus model is there too, as an independent check on the Kartverket heights.
+
+Ground images (``data/imagery``, see its README) are draped over the terrain and chosen in the
+viewer's Ground menu: Sentinel-2 true colour in two seasons, Kartverket's N50 map (Norway) and
+ESA WorldCover land cover. Each is written next to the pages as terrain-img/<region>-<layer>.js
+and loaded only when picked.
 """
 
 from __future__ import annotations
@@ -32,6 +37,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "site"                            # pages join the main results site
 SUMMARY = ROOT / "outputs" / "site" / "terrain.json"    # stats for the main hub tile
 DATA = ROOT / "data" / "terrain"
+IMAGERY = ROOT / "data" / "imagery"
 DOWNLOAD = False
 
 import aerosim.propulsion  # noqa: F401  (registers the engine backends)
@@ -61,6 +67,12 @@ REGIONS = {
                    ("Preikestolen", 58.98666, 6.18748, "pk"), ("Kjerag", 59.02237, 6.58764, "pk"),
                    ("Lysefjorden", 58.985, 6.30, "sea"), ("Høgsfjorden", 58.885, 6.09, "sea")],
         "subtitle": "Kartverket 1 m laser terrain model  ·  Mach 0.5  ·  100 m set clearance",
+        "grounds": [
+            ("s2-summer", "Sentinel-2, 17 Aug 2025", {"source": "sentinel2", "date": "2025-08-17", "px": 10}),
+            ("s2-snow", "Sentinel-2, 7 Apr 2025 (snow)", {"source": "sentinel2", "date": "2025-04-07", "px": 10, "gamma": 1.0}),
+            ("n50", "Kartverket N50 topographic map", {"source": "n50", "px": 6}),
+            ("landcover", "ESA WorldCover land cover", {"source": "worldcover", "px": 10}),
+        ],
     },
     "matochkin-shar": {
         "title": "Matochkin Shar, Novaya Zemlya", "source": "copernicus", "ramp": "arctic",
@@ -73,6 +85,11 @@ REGIONS = {
                    ("Kara Sea", 73.2348, 56.8215, "sea"), ("Severny Island", 73.47, 55.95, ""),
                    ("Yuzhny Island", 73.17, 54.95, "")],
         "subtitle": "Copernicus GLO-30 elevation model  ·  Mach 0.6  ·  100 m set clearance",
+        "grounds": [
+            ("s2-summer", "Sentinel-2, 11 Aug 2024", {"source": "sentinel2", "date": "2024-08-11", "px": 15}),
+            ("s2-snow", "Sentinel-2, 3 Jun 2022 (snow, ice)", {"source": "sentinel2", "date": "2022-06-03", "px": 15, "gamma": 1.0}),
+            ("landcover", "ESA WorldCover land cover", {"source": "worldcover", "px": 15}),
+        ],
     },
 }
 
@@ -125,6 +142,32 @@ def fly_region(key: str, r: dict, engine) -> tuple[TerrainGrid, list[dict]]:
             f"min AGL {me['min_agl']:.1f} m, max xtrack {np.abs(me['cross_track']).max():.0f} m")
         models.append({"name": name, "flight": f, "track": tr, "profile": pr})
     return g, models
+
+
+def grounds_for(key: str, r: dict, g: TerrainGrid) -> list[dict]:
+    """The region's draped images: built into data/imagery if missing (or ``--download``), then
+    written next to the pages as terrain-img/<region>-<layer>.js for on-demand loading."""
+    from aerosim.terrain import imagery as im
+    out = []
+    (OUT / "terrain-img").mkdir(exist_ok=True)
+    for layer, label, spec in r["grounds"]:
+        ext = ".png" if spec["source"] == "worldcover" else ".jpg"
+        path = IMAGERY / key / f"{layer}{ext}"
+        if DOWNLOAD or not path.exists():
+            log(f"building {key}/{layer}")
+            if spec["source"] == "sentinel2":
+                L = im.sentinel2(g, spec["date"], px=spec["px"], key=layer, label=label, gamma=spec.get("gamma", 0.8))
+            elif spec["source"] == "n50":
+                L = im.kartverket_n50(g, px=spec["px"], key=layer, label=label)
+            else:
+                L = im.worldcover(g, px=spec["px"], key=layer, label=label)
+            L.save(path, **({"quality": 75} if spec["source"] == "n50" else {}))
+        side = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+        gid = f"{key}-{layer}"
+        (OUT / "terrain-img" / f"{gid}.js").write_text(ts.ground_script(gid, path), encoding="utf-8")
+        out.append({"id": gid, "label": label, "credit": side["credit"], "src": f"terrain-img/{gid}.js",
+                    **({"legend": side["legend"]} if "legend" in side else {})})
+    return out
 
 
 def labels(g: TerrainGrid, r: dict) -> list[dict]:
@@ -182,8 +225,12 @@ F-16's flight controls then fly.</li>
 
 
 CREDITS = (f'<p>{ATTRIBUTION["kartverket"]}.</p><p>{ATTRIBUTION["copernicus"]}. {COPERNICUS_LIABILITY}</p>'
-           f'<p>{ts.AIRCRAFT_CREDIT}.</p><p>The resampled grids are in the repository under data/terrain, '
-           'with their licences.</p>')
+           '<p>Ground images: Sentinel-2 true colour, contains modified Copernicus Sentinel data '
+           '(2022, 2024, 2025); N50 Raster © Kartverket (CC BY 4.0); © ESA WorldCover project 2021 / '
+           'Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium '
+           '(CC BY 4.0).</p>'
+           f'<p>{ts.AIRCRAFT_CREDIT}.</p><p>The resampled grids and images are in the repository under '
+           'data/terrain and data/imagery, with their licences.</p>')
 
 
 def main(argv=None):
@@ -209,7 +256,8 @@ def main(argv=None):
                                       subtitle=r["subtitle"], labels=labels(g, r),
                                       attribution=ATTRIBUTION[r["source"]], ramp=r["ramp"],
                                       clearance=CLEARANCE, pages=PAGES, current="terrain.html",
-                                      notes=notes, subnav=SUBNAV, here=f"terrain-{key}.html")
+                                      notes=notes, subnav=SUBNAV, here=f"terrain-{key}.html",
+                                      grounds=grounds_for(key, r, g))
         (OUT / f"terrain-{key}.html").write_text(page, encoding="utf-8", newline="\n")
         log(f"wrote terrain-{key}.html ({len(page) / 1e6:.2f} MB)")
         st = [ts.flight_stats(m) for m in models]

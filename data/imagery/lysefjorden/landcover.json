@@ -1,0 +1,57 @@
+{
+ "key": "landcover",
+ "label": "ESA WorldCover land cover",
+ "credit": "\u00a9 ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0)",
+ "file": "landcover.png",
+ "width": 4800,
+ "height": 3000,
+ "source": "esa-worldcover-2021-v200",
+ "tiles": [
+  "N57E003",
+  "N57E006"
+ ],
+ "pixel_m": 10,
+ "coverage": 1.0,
+ "legend": [
+  [
+   "Tree cover",
+   "#006400"
+  ],
+  [
+   "Shrubland",
+   "#ffbb22"
+  ],
+  [
+   "Grassland",
+   "#ffff4c"
+  ],
+  [
+   "Cropland",
+   "#f096ff"
+  ],
+  [
+   "Built-up",
+   "#fa0000"
+  ],
+  [
+   "Bare / sparse vegetation",
+   "#b4b4b4"
+  ],
+  [
+   "Snow and ice",
+   "#f0f0f0"
+  ],
+  [
+   "Permanent water",
+   "#0064c8"
+  ],
+  [
+   "Herbaceous wetland",
+   "#0096a0"
+  ],
+  [
+   "Moss and lichen",
+   "#fae6a0"
+  ]
+ ]
+}

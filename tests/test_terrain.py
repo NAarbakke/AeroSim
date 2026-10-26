@@ -73,6 +73,68 @@ def test_read_cog_float_predictor(tmp_path):
     assert read_cog(tmp_path / "a.tif")[1] == pytest.approx((10.0, 20.0, 0.5, -0.25))
 
 
+def _rgb_tiff(path, a, tile=16):
+    """Tiled RGB uint8 GeoTIFF, Deflate + horizontal predictor (as Sentinel-2 TCI COGs)."""
+    H, W, _ = a.shape
+    pad = np.zeros((-(-H // tile) * tile, -(-W // tile) * tile, 3), np.uint8)
+    pad[:H, :W] = a
+    tiles = []
+    for r in range(0, pad.shape[0], tile):
+        for c in range(0, pad.shape[1], tile):
+            t = pad[r:r + tile, c:c + tile]
+            d = np.diff(t, axis=1, prepend=np.zeros((tile, 1, 3), np.uint8)).astype(np.uint8)
+            tiles.append(zlib.compress(d.tobytes()))
+    tags = [(256, 3, [W]), (257, 3, [H]), (258, 3, [8, 8, 8]), (259, 3, [8]), (262, 3, [2]),
+            (277, 3, [3]), (284, 3, [1]), (317, 3, [2]), (322, 3, [tile]), (323, 3, [tile]),
+            (324, 4, [0] * len(tiles)), (325, 4, [len(t) for t in tiles]), (339, 3, [1, 1, 1]),
+            (33550, 12, [10.0, 10.0, 0.0]), (33922, 12, [0, 0, 0, 300000.0, 6600000.0, 0]),
+            (34735, 3, [1, 1, 0, 1, 1025, 0, 1, 1])]
+    _write_tiff(path, tags, tiles)
+
+
+def _write_tiff(path, tags, tiles):
+    fmt = {3: "H", 4: "I", 12: "d"}
+    size = lambda ty, v: len(v) * struct.calcsize(fmt[ty])
+    extra_off = 8 + 2 + 12 * len(tags) + 4
+    data_off = extra_off + sum(size(ty, v) for _, ty, v in tags if size(ty, v) > 4)
+    offs = list(np.cumsum([0] + [len(t) for t in tiles[:-1]]) + data_off)
+    tags = [(c, ty, [int(o) for o in offs] if c == 324 else v) for c, ty, v in tags]
+    extra, entries = b"", []
+    for code, ty, vals in tags:
+        raw = struct.pack("<" + fmt[ty] * len(vals), *vals)
+        if len(raw) <= 4:
+            entries.append(struct.pack("<HHI", code, ty, len(vals)) + raw.ljust(4, b"\0"))
+        else:
+            entries.append(struct.pack("<HHII", code, ty, len(vals), extra_off + len(extra)))
+            extra += raw
+    Path(path).write_bytes(b"II*\0" + struct.pack("<I", 8) + struct.pack("<H", len(tags)) + b"".join(entries)
+                          + struct.pack("<I", 0) + extra + b"".join(tiles))
+
+
+def test_read_tiff_window_rgb_horizontal_predictor(tmp_path):
+    from aerosim.terrain.dem import read_tiff_window
+    a = np.random.default_rng(3).integers(0, 256, (37, 45, 3), dtype=np.uint8)
+    _rgb_tiff(tmp_path / "rgb.tif", a)
+    full, geo = read_tiff_window(tmp_path / "rgb.tif")
+    assert np.array_equal(full, a) and geo == pytest.approx((300000.0, 6600000.0, 10.0, -10.0))
+    win, g = read_tiff_window(tmp_path / "rgb.tif", rows=(5, 30), cols=(17, 40))   # across tiles
+    assert np.array_equal(win, a[5:30, 17:40]) and g == pytest.approx((300170.0, 6599950.0, 10.0, -10.0))
+
+
+def test_image_layer_round_trip_and_ground_script(tmp_path):
+    pytest.importorskip("PIL")
+    from aerosim.plots.terrain_site import ground_script
+    from aerosim.terrain.imagery import ImageLayer
+    rgb = np.zeros((40, 60, 3), np.uint8)
+    rgb[:, :30] = (0, 100, 0)
+    rgb[:, 30:] = (0, 100, 200)
+    p = ImageLayer("lc", "Land cover", "credit", rgb, {"legend": [["Trees", "#006400"]]}).save(tmp_path / "lc.png")
+    back = ImageLayer.load(p)
+    assert np.array_equal(back.rgb, rgb) and back.meta["legend"] == [["Trees", "#006400"]]
+    js = ground_script("r-lc", p)
+    assert js.startswith('(window.AEROSIM_GROUND = window.AEROSIM_GROUND || {})["r-lc"] = "data:image/png;base64,iVBOR')
+
+
 def _grid(fn, size=(20e3, 12e3), spacing=50.0, lat0=60.0, lon0=10.0):
     g = TerrainGrid._empty(lat0, lon0, size, spacing, "synthetic")
     X, Y = np.meshgrid(g.x, g.y)
@@ -206,6 +268,9 @@ def test_terrain_page():
     assert "importmap" in page and '"nx":41' in page and "Flight summary" in page
     assert "three/addons/loaders/GLTFLoader.js" in page and '"glb":"Z2xURg' in page   # base64 "glTF"
     assert "iedalton" in page and "CC BY 4.0" in page                                  # model credit
+    g2 = terrain_replay_html(g, [{"name": "A", "flight": f, "track": tr, "profile": pr}], title="Test",
+                             grounds=[{"id": "t-s2", "label": "Sentinel-2", "credit": "c", "src": "terrain-img/t-s2.js"}])
+    assert 'id="ground"' in g2 and '"src":"terrain-img/t-s2.js"' in g2
     hub = terrain_hub_html([{"href": "a.html", "title": "A", "text": "t", "img": "data:,"}],
                            [{"label": "x", "value": "y"}], pages=[("Overview", "index.html")], method="")
     assert 'href="a.html"' in hub

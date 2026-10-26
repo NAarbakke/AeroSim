@@ -26,23 +26,35 @@ The distribution is called `AeroSim`; the import name and command are lowercase
 
 ```bash
 uv venv --python 3.12 .venv
-uv pip install --python .venv/Scripts/python.exe -e '.[all,dev]'
-.venv/Scripts/python.exe -m pytest
+PY=.venv/bin/python                  # Linux / macOS
+# PY=.venv/Scripts/python.exe        # Windows
+uv pip install --python $PY -e '.[all,dev]'
+uv pip install --python $PY tifffile pyproj scikit-image cvxpy jsbsim
+$PY -m pytest
 ```
+
+The code is plain Python with pathlib paths and runs the same on Linux, macOS and Windows; the
+paths below differ only in where the venv keeps its interpreter and site-packages.
 
 Notes:
 
 - **Python 3.12** is recommended: RocketPy's dependency `simplekml` may fail to build on 3.13.
 - **TurboFlow** is a separate `turboflow` extra, not part of `all`: it pins `numpy<2`, which
   conflicts with NASA `cea` (`numpy>=2`). Install it in its own environment if you need it.
+- **pyCycle**: the PyPI release (om-pycycle 4.4.0) fails on numpy 2.5; install it from its
+  master branch, e.g. `uv pip install --python $PY git+https://github.com/OpenMDAO/pyCycle@ee7e161`.
 - **openMotor** is GPL-3.0 and not on PyPI, so it is never installed automatically
   (see `docs/licensing.md`). Clone it next to this repo, build its one Cython module
-  (needs a C compiler, e.g. MSVC Build Tools) and point the venv at it:
+  (needs a C compiler: gcc/clang on Linux and macOS, MSVC Build Tools on Windows) and point
+  the venv at it:
   ```bash
   git clone https://github.com/reilleya/openMotor ../openMotor
-  uv pip install --python .venv/Scripts/python.exe scikit-fmm scikit-image cython setuptools
-  cd ../openMotor && ../AeroSim/.venv/Scripts/python.exe setup.py build_ext --inplace && cd -
-  echo "$(cd ../openMotor && pwd -W)" > .venv/Lib/site-packages/openmotor.pth
+  uv pip install --python $PY scikit-fmm scikit-image cython setuptools
+  (cd ../openMotor && ../AeroSim/$PY setup.py build_ext --inplace)
+  # Linux / macOS
+  echo "$(cd ../openMotor && pwd)" > "$($PY -c 'import site; print(site.getsitepackages()[0])')/openmotor.pth"
+  # Windows (Git Bash)
+  # echo "$(cd ../openMotor && pwd -W)" > .venv/Lib/site-packages/openmotor.pth
   ```
   If `setup.py` fails on missing PyQt tooling, build only the extension
   `mathlib._find_perimeter_cy` from `mathlib/_find_perimeter_cy.pyx` with `cythonize`.
@@ -102,7 +114,8 @@ aerosim/
 ├── terrain/          real terrain for low-level flight: dem.py (Kartverket 1 m DTM via WCS,
 │                     Copernicus GLO-30 tiles, local metric grid) · route.py (least-cost valley
 │                     routes, turn-radius smoothing, terrain-following altitude profile) ·
-│                     flight.py (JSBSim aircraft flying a route at low level over the DEM)
+│                     flight.py (JSBSim aircraft flying a route at low level over the DEM) ·
+│                     imagery.py (Sentinel-2, Kartverket N50, ESA WorldCover ground images)
 ├── optimization/     mdao.py (OpenMDAO components) · trajectory.py (Dymos optimal ascent)
 ├── missions/         YAML-driven runner wiring propulsion -> atmosphere -> flight
 ├── plots/            matplotlib charts: thrust curves, motor history, grain burnback,
@@ -129,6 +142,8 @@ examples/             solid motor -> trajectory · air brakes · TVC design · D
                       bake_f16_model (the F-16 glTF for those pages)
 data/terrain/         height grids for the terrain flights (Kartverket, Copernicus; 10 MB, licences
                       in its README), so the terrain site builds offline
+data/imagery/         ground images draped over them (Sentinel-2, N50 map, land cover; 31 MB, licences
+                      in its README)
 tests/                pytest, one folder per layer (core, thermo, propulsion, ...)
 docs/                 architecture.md · licensing.md · references/rockot (User's Guide) ·
                       briefings/rockot (PDF + PPTX briefing, 3D replay page, generators) ·
@@ -169,6 +184,7 @@ built-in model.
 | Flight | JSBSim airframe on an AeroSim engine deck, altitude / Mach / heading autopilot | working; F-16 holds 4,000 m, Mach 0.80, 90 deg |
 | Terrain | Kartverket DTM (Norway) and Copernicus GLO-30 (global) on a local grid | working; the two agree over Lysefjorden to a median 0.1 m, rms 3.9 m above the tree line |
 | Terrain | Valley routes, terrain-following profile (LP), JSBSim F-16 terrain following | working; four routes at 100 m set clearance, lowest 95.9 m above ground |
+| Terrain | Ground images: Sentinel-2 true colour (two seasons), Kartverket N50 map, ESA WorldCover land cover, switchable in the viewer | working |
 | GNC | PID / actuators / sensors, air-brake apogee control, TVC attitude hold | working |
 | GNC | python-control design: pole placement, LQR, margins | working |
 | GNC | Booster landing: convex powered-descent guidance, replanned with drag and wind | working; Falcon 9-class touchdown under 2 m/s, on target |

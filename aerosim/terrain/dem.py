@@ -60,7 +60,8 @@ COPERNICUS_LIABILITY = ("The organisations in charge of the Copernicus programme
                         "delegation do not incur any liability for any use of the Copernicus WorldDEM-30.")
 
 
-def _download(url: str, path: Path, tries: int = 4) -> Path:
+def _download(url: str, path: Path, tries: int = 4, magic: tuple = (b"II*\x00", b"MM\x00*")) -> Path:
+    """Fetch ``url`` to ``path`` once (kept as a cache); the content must start with ``magic``."""
     if path.exists() and path.stat().st_size > 0:
         return path
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,8 +70,8 @@ def _download(url: str, path: Path, tries: int = 4) -> Path:
             req = urllib.request.Request(url, headers={"User-Agent": "AeroSim terrain loader"})
             with urllib.request.urlopen(req, timeout=300) as r:
                 data = r.read()
-            if not data.startswith((b"II*\x00", b"MM\x00*")):
-                raise ValueError(f"not a TIFF: {data[:200]!r}")
+            if not data.startswith(magic):
+                raise ValueError(f"unexpected content from {url[:80]}: {data[:200]!r}")
             tmp = path.with_suffix(".part")
             tmp.write_bytes(data)
             tmp.replace(path)
@@ -82,37 +83,79 @@ def _download(url: str, path: Path, tries: int = 4) -> Path:
     return path
 
 
-def read_cog(path: str | Path) -> tuple[np.ndarray, tuple[float, float, float, float]]:
-    """Read a single-band float32 GeoTIFF (tiled or striped, any compression tifffile handles
-    plus Deflate + floating-point predictor). Returns (array, (x0, y0, dx, dy)) where (x0, y0)
-    is the outer corner of pixel (0, 0) and dy is negative for north-up rasters."""
+def _geo(p) -> tuple[float, float, float, float]:
+    scale = p.tags["ModelPixelScaleTag"].value
+    tie = p.tags["ModelTiepointTag"].value
+    geo = (tie[3] - tie[0] * scale[0], tie[4] + tie[1] * scale[1], scale[0], -scale[1])
+    keys = p.tags["GeoKeyDirectoryTag"].value
+    keys = {keys[i]: keys[i + 3] for i in range(4, len(keys), 4)}
+    if keys.get(1025) == 2:                       # PixelIsPoint: the tie point is a pixel centre
+        geo = (geo[0] - geo[2] / 2, geo[1] - geo[3] / 2, geo[2], geo[3])
+    return geo
+
+
+def _decode_chunk(raw: bytes, compression: int, predictor: int, shape: tuple, dtype) -> np.ndarray:
+    """One tile or strip: (rows, width, samples). Deflate (8, 32946) or none; predictor 1 (none),
+    2 (horizontal differencing per sample) or 3 (floating point: byte planes, differenced)."""
+    if compression in (8, 32946):
+        raw = zlib.decompress(raw)
+    elif compression != 1:
+        raise ValueError(f"TIFF compression {compression} not supported here")
+    _, w, spp = shape
+    dt = np.dtype(dtype)
+    b = np.frombuffer(raw, np.uint8)
+    rows = b.size // (w * spp * dt.itemsize)
+    b = b[:rows * w * spp * dt.itemsize]
+    if predictor == 3:
+        b = np.cumsum(b.reshape(rows, -1), axis=1, dtype=np.uint8)          # undo differencing
+        v = b.reshape(rows, dt.itemsize, w * spp).transpose(0, 2, 1)[:, :, ::-1]   # big-endian planes
+        return v.copy().view(dt.newbyteorder("<")).reshape(rows, w, spp)
+    v = b.view(dt.newbyteorder("<")).reshape(rows, w, spp)
+    if predictor == 2:
+        v = np.cumsum(v, axis=1, dtype=dt)          # wraps modulo 2^bits, as the encoder did
+    return v
+
+
+def read_tiff_window(path, rows=None, cols=None, page: int = 0):
+    """Pixels [rows[0]:rows[1], cols[0]:cols[1]] of a tiled or striped GeoTIFF page, decoding only
+    the tiles that overlap. Returns (array (h, w) or (h, w, samples), (x0, y0, dx, dy) of the
+    window's outer corner). Handles what tifffile cannot without imagecodecs: Deflate with the
+    horizontal or floating-point predictor (Copernicus DEM, Sentinel-2 COGs, ESA WorldCover)."""
     tifffile = require("tifffile", "terrain")
     with tifffile.TiffFile(path) as t:
-        p = t.pages[0]
-        scale = p.tags["ModelPixelScaleTag"].value
-        tie = p.tags["ModelTiepointTag"].value
-        geo = (tie[3] - tie[0] * scale[0], tie[4] + tie[1] * scale[1], scale[0], -scale[1])
-        keys = p.tags["GeoKeyDirectoryTag"].value
-        keys = {keys[i]: keys[i + 3] for i in range(4, len(keys), 4)}
-        if keys.get(1025) == 2:                   # PixelIsPoint: the tie point is a pixel centre
-            geo = (geo[0] - geo[2] / 2, geo[1] - geo[3] / 2, geo[2], geo[3])
-        if int(p.predictor) != 3:
-            return p.asarray().astype(np.float32), geo
-        H, W = p.shape
+        p = t.pages[page]
+        geo = _geo(t.pages[0])
+        H, W = p.imagelength, p.imagewidth
+        if page:                                  # overview: same footprint, coarser pixels
+            geo = (geo[0], geo[1], geo[2] * t.pages[0].imagewidth / W, geo[3] * t.pages[0].imagelength / H)
+        r0, r1 = rows or (0, H)
+        c0, c1 = cols or (0, W)
+        r0, r1, c0, c1 = max(r0, 0), min(r1, H), max(c0, 0), min(c1, W)
+        spp, dtype = p.samplesperpixel, p.dtype
         tw, tl = (p.tilewidth, p.tilelength) if p.is_tiled else (W, p.rowsperstrip)
-        out = np.zeros((H, W), np.float32)
+        out = np.zeros((r1 - r0, c1 - c0, spp), dtype)
         nx = -(-W // tw)
         fh = t.filehandle
         for i, (off, n) in enumerate(zip(p.dataoffsets, p.databytecounts)):
+            tr, tc = divmod(i, nx)
+            y0, x0 = tr * tl, tc * tw
+            if y0 >= r1 or y0 + tl <= r0 or x0 >= c1 or x0 + tw <= c0 or n == 0:
+                continue
             fh.seek(off)
-            b = np.frombuffer(zlib.decompress(fh.read(n)), np.uint8)
-            rows = b.size // (tw * 4)
-            b = np.cumsum(b.reshape(rows, tw * 4), axis=1, dtype=np.uint8)   # undo differencing
-            v = b.reshape(rows, 4, tw).transpose(0, 2, 1)[:, :, ::-1].copy().view("<f4")[..., 0]
-            r, c = divmod(i, nx)
-            hh, ww = min(rows, H - r * tl), min(tw, W - c * tw)
-            out[r * tl:r * tl + hh, c * tw:c * tw + ww] = v[:hh, :ww]
-        return out, geo
+            v = _decode_chunk(fh.read(n), int(p.compression), int(p.predictor), (tl, tw, spp), dtype)
+            ya, yb = max(y0, r0), min(y0 + v.shape[0], r1)
+            xa, xb = max(x0, c0), min(x0 + tw, c1)
+            out[ya - r0:yb - r0, xa - c0:xb - c0] = v[ya - y0:yb - y0, xa - x0:xb - x0]
+        geo = (geo[0] + c0 * geo[2], geo[1] + r0 * geo[3], geo[2], geo[3])
+        return (out[..., 0] if spp == 1 else out), geo
+
+
+def read_cog(path: str | Path) -> tuple[np.ndarray, tuple[float, float, float, float]]:
+    """Read a single-band float32 GeoTIFF (tiled or striped; uncompressed or Deflate, with or
+    without a predictor). Returns (array, (x0, y0, dx, dy)) where (x0, y0) is the outer corner
+    of pixel (0, 0) and dy is negative for north-up rasters."""
+    a, geo = read_tiff_window(path)
+    return a.astype(np.float32), geo
 
 
 def _bilinear(a: np.ndarray, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:

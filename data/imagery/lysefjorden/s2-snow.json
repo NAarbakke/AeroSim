@@ -1,0 +1,17 @@
+{
+ "key": "s2-snow",
+ "label": "Sentinel-2, spring snow",
+ "credit": "Contains modified Copernicus Sentinel data 2025",
+ "file": "s2-snow.jpg",
+ "width": 4800,
+ "height": 3000,
+ "source": "sentinel2",
+ "date": "2025-04-07",
+ "scenes": [
+  "S2C_32VLL_20250407_0_L2A"
+ ],
+ "pixel_m": 10.0,
+ "coverage": 0.999961875,
+ "gamma": 1.0,
+ "gain": 1.0
+}

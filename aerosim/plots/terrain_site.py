@@ -112,6 +112,16 @@ def _pack_flight(m: dict, color: str, max_points: int = 5000, prof_points: int =
     }
 
 
+def ground_script(gid: str, image_path) -> str:
+    """The script file for one draped image: stores it as a data: URL under ``gid``."""
+    from pathlib import Path
+    path = Path(image_path)
+    mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+    data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return (f'(window.AEROSIM_GROUND = window.AEROSIM_GROUND || {{}})["{gid}"] = '
+            f'"data:{mime};base64,{data}";\n')
+
+
 def flight_stats(m: dict) -> dict[str, str]:
     f, me = m["flight"], m["flight"].meta
     err = f.position[:, 2] - me["h_ref"]
@@ -150,6 +160,10 @@ pointer-events:none;font-variant-numeric:tabular-nums;text-shadow:0 1px 3px var(
 #attr{position:absolute;left:20px;right:20px;bottom:8px;font-size:10.5px;color:var(--ink2);
 pointer-events:none;text-shadow:0 1px 2px var(--page);line-height:1.3}
 #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#glegend{position:absolute;right:12px;bottom:30px;display:none;flex-direction:column;gap:2px;
+font-size:11.5px;background:var(--surface);border:1px solid var(--grid);border-radius:6px;padding:6px 9px;
+pointer-events:none;opacity:.92}
+#glegend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
 #labels div{position:absolute;transform:translate(-50%,-100%);font-size:12px;font-weight:600;
 color:#fff;text-shadow:0 0 3px #000,0 0 6px #000;white-space:nowrap}
 #labels div.sea{font-style:italic;font-weight:500;color:#cfe3f2}
@@ -204,8 +218,12 @@ for (let k = 0; k < NV; k++) {
   tcol[3 * k] = cc.r; tcol[3 * k + 1] = cc.g; tcol[3 * k + 2] = cc.b;
 }
 tgeo.setAttribute("color", new THREE.BufferAttribute(tcol, 3));
+const tuv = new Float32Array(NV * 2);       // draped images span the grid exactly, north up
+for (let j = 0, k = 0; j < NY; j++) for (let i = 0; i < NX; i++, k++) { tuv[2 * k] = i / (NX - 1); tuv[2 * k + 1] = j / (NY - 1); }
+tgeo.setAttribute("uv", new THREE.BufferAttribute(tuv, 2));
 const world = new THREE.Group();          // terrain and lines: scale.y = height exaggeration
-world.add(new THREE.Mesh(tgeo, new THREE.MeshLambertMaterial({vertexColors: true})));
+const tmat = new THREE.MeshLambertMaterial({vertexColors: true});
+world.add(new THREE.Mesh(tgeo, tmat));
 
 const host = document.getElementById("scene");
 const renderer = new THREE.WebGLRenderer({antialias: true, logarithmicDepthBuffer: true});
@@ -214,11 +232,68 @@ const scene = new THREE.Scene(), sky = new THREE.Color(TK.dark ? "#1b2633" : "#c
 scene.background = sky;
 const span = Math.hypot(T.dx * NX, T.dx * NY);
 scene.fog = new THREE.Fog(sky, span * 0.35, span * 1.4);
-scene.add(world, new THREE.HemisphereLight(0xdfe9f3, 0x3a3328, 0.9));
+const hemi = new THREE.HemisphereLight(0xdfe9f3, 0x3a3328, 0.9); scene.add(world, hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-1, 0.75, -1); scene.add(sun);
 const camera = new THREE.PerspectiveCamera(55, 1, 2, span * 3);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI * 0.495;
+
+// ---------- ground: height colours, or an image draped over the terrain ----------
+// each image is a script next to the page (terrain-img/*.js) that stores a data: URL, loaded
+// only when chosen, so the page stays small and works from a double-clicked file
+const gsel = document.getElementById("ground"), glegend = document.getElementById("glegend");
+const attrEl = document.getElementById("attr"), baseAttr = attrEl.textContent;
+window.AEROSIM_GROUND = window.AEROSIM_GROUND || {};
+for (const g of D.grounds) gsel.insertAdjacentHTML("beforeend", `<option value="${g.id}">${g.label}</option>`);
+let groundTex = null;
+function loadGround(g) {
+  return new Promise((ok, bad) => {
+    const use = () => {
+      const img = new Image();
+      img.onload = () => {
+        let src = img; const mx = renderer.capabilities.maxTextureSize;
+        if (img.width > mx || img.height > mx) {             // e.g. phones: scale to what the GPU takes
+          const k = mx / Math.max(img.width, img.height), c = document.createElement("canvas");
+          c.width = Math.floor(img.width * k); c.height = Math.floor(img.height * k);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); src = c;
+        }
+        const t = new THREE.Texture(src); t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = renderer.capabilities.getMaxAnisotropy(); t.needsUpdate = true; ok(t);
+      };
+      img.onerror = () => bad(new Error("could not decode " + g.src)); img.src = window.AEROSIM_GROUND[g.id];
+    };
+    if (window.AEROSIM_GROUND[g.id]) return use();
+    const s = document.createElement("script"); s.src = g.src; s.onload = use;
+    s.onerror = () => bad(new Error("missing " + g.src)); document.head.append(s);
+  });
+}
+async function setGround(id) {
+  const g = D.grounds.find(x => x.id === id);
+  let tex = null;
+  if (g) {
+    gsel.disabled = true;
+    try { tex = await loadGround(g); }
+    catch (e) { console.warn(e); gsel.disabled = false; gsel.value = "height"; return setGround("height"); }
+    gsel.disabled = false;
+  }
+  if (groundTex) groundTex.dispose();                     // one image on the GPU at a time
+  groundTex = tex; tmat.map = tex; tmat.vertexColors = !tex; tmat.needsUpdate = true;
+  // images: flat ground at about the image's own brightness (Lambert: irradiance / pi), slopes shaded
+  hemi.intensity = tex ? 2.4 : 0.9; sun.intensity = tex ? 2.2 : 1.6;
+  // light from where the sun was for the photos (Sentinel-2 passes ~10:30 local: SSE), NW for relief colours
+  if (tex) sun.position.set(0.3, 0.9, 0.85); else sun.position.set(-1, 0.75, -1);
+  attrEl.textContent = g ? `${baseAttr}  ·  ${g.credit}` : baseAttr;
+  glegend.innerHTML = g && g.legend ? g.legend.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join("") : "";
+  glegend.style.display = glegend.innerHTML ? "flex" : "none";
+  try { localStorage.setItem("aerosim-ground-" + location.pathname, id); } catch (e) { /* storage blocked */ }
+}
+gsel.onchange = () => setGround(gsel.value);
+{
+  let start = D.grounds.length ? D.grounds[0].id : "height";
+  try { const v = localStorage.getItem("aerosim-ground-" + location.pathname);
+    if (v && (v === "height" || D.grounds.some(g => g.id === v))) start = v; } catch (e) { /* storage blocked */ }
+  gsel.value = start; setGround(start);
+}
 
 // ---------- aircraft: the glTF F-16 (true size, nose +x, origin near the CG) ----------
 let F16 = null;
@@ -479,11 +554,15 @@ def terrain_replay_html(grid, models: list[dict], *, title: str, subtitle: str =
                         clearance: float = 100.0, exag: float = 2.0, rates=(1, 2, 5, 10, 20),
                         rate: float = 5, pages: list | None = None, current: str = "",
                         notes: str = "", subnav: list[tuple[str, str]] = (), here: str = "",
+                        grounds: list[dict] = (),
                         theme: str = "dark") -> str:
     """One region: terrain mesh (``grid`` at display resolution), flights, charts, minimap.
 
     labels: [{"name", "x", "y", "z" (m), "kind": "pk" (point) | "sea" | ""}].
-    notes: HTML for the side panel (method, data)."""
+    notes: HTML for the side panel (method, data).
+    grounds: draped images to choose from, [{"id", "label", "credit", "src" (a script that sets
+    ``window.AEROSIM_GROUND[id]`` to a data: URL, see ``ground_script``), "legend" (optional
+    [[name, colour]])}]; the first is shown at start (or the viewer's last choice)."""
     T = THEMES[theme]
     w = grid.water
     bits = np.packbits(w.ravel(), bitorder="little")
@@ -502,6 +581,7 @@ def terrain_replay_html(grid, models: list[dict], *, title: str, subtitle: str =
         "mapBox": [float(grid.x[0]), float(grid.x[-1]), float(grid.y[0]), float(grid.y[-1])],
         "mapAspect": float((grid.y[-1] - grid.y[0]) / (grid.x[-1] - grid.x[0])),
         "aircraft": _aircraft(),
+        "grounds": [dict(g) for g in grounds],
     }
     attribution = f"{attribution}  ·  {AIRCRAFT_CREDIT}" if attribution else AIRCRAFT_CREDIT
     stats = [flight_stats(m) for m in models]
@@ -510,7 +590,7 @@ def terrain_replay_html(grid, models: list[dict], *, title: str, subtitle: str =
     head = "".join(f'<th><span class="sw" style="display:inline-block;background:{T["series"][i]}"></span> '
                    f'{html.escape(m["name"])}</th>' for i, m in enumerate(models))
     page = f"""<div id="app">
- <div id="scene"><div id="labels"></div><div id="hud"><h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p></div>
+ <div id="scene"><div id="labels"></div><div id="glegend" aria-label="Land cover legend"></div><div id="hud"><h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p></div>
   <div id="clock">T+0<small>&nbsp;</small></div><div id="attr">{html.escape(attribution)}</div></div>
  <div id="side">{_subnav(subnav, here)}<div id="cards"></div>
   <h3>Map</h3><canvas id="mini" aria-label="Shaded-relief map with both routes; click to jump"></canvas>
@@ -534,6 +614,7 @@ def terrain_replay_html(grid, models: list[dict], *, title: str, subtitle: str =
   <select id="cam" aria-label="Camera"><option value="tail">Close behind</option><option value="chase">Chase</option><option value="cockpit">Cockpit</option>
    <option value="orbit">Orbit (follow)</option><option value="overview">Overview</option></select>
   <select id="who" aria-label="Aircraft to follow"></select>
+  <select id="ground" aria-label="Ground imagery"><option value="height">Ground: height colours</option></select>
   <span class="muted" style="font-size:13px">Camera follows:</span>
   <label><input type="checkbox" id="f-roll"> roll</label><label><input type="checkbox" id="f-pitch"> pitch</label>
   <label><input type="checkbox" id="f-yaw"> yaw</label>

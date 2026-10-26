@@ -1,0 +1,19 @@
+{
+ "key": "n50",
+ "label": "Topographic map (Kartverket N50)",
+ "credit": "N50 Raster \u00a9 Kartverket (CC BY 4.0)",
+ "file": "n50.jpg",
+ "width": 8000,
+ "height": 5000,
+ "source": "kartverket-n50",
+ "cells": [
+  "2076",
+  "2077",
+  "2078",
+  "2096",
+  "2097",
+  "2098"
+ ],
+ "pixel_m": 6.0,
+ "coverage": 1.0
+}
