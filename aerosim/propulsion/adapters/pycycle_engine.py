@@ -23,9 +23,12 @@ maps (no convergence), so decks at altitude should use power below ~0.9.
 
 Thermodynamics: pyCycle's tabulated air / Jet-A products by default (``THERMO``; set it to
 CEA equilibrium for janaf species). Needs om-pycycle newer than 4.4.0 on numpy >= 2.5 (the
-fix is on pyCycle's master). Off-design points far from the last converged one are reached
-by continuation: on failure the model restarts from the design point and walks there in
-steps. SI in and out.
+fix is on pyCycle's master). Off-design points are reached by adaptive continuation from the
+last converged point: altitude, Mach and T4 move towards the target in steps; a step that
+fails (NaN residuals or no convergence) restores the last converged solution and is halved.
+Newton on the full cycle is sensitive to its start, so a direct jump that converges on one
+machine can diverge on another (different floating-point kernels); the walk makes the result
+independent of that. If the walk stalls, it restarts from the design point. SI in and out.
 """
 
 from __future__ import annotations
@@ -287,6 +290,7 @@ class PyCycleEngine:
         self._prob, self._guess = prob, guess
         self._set_od(d["altitude"], max(d["mach"], 1e-6), d["t4"])
         self._run()
+        self._cond = np.array([d["altitude"], max(d["mach"], 1e-6), d["t4"]])
         return prob
 
     def _set_od(self, altitude, mach, t4):
@@ -294,6 +298,35 @@ class PyCycleEngine:
         p.set_val("OD.fc.alt", altitude, units="m")
         p.set_val("OD.fc.MN", max(mach, 1e-6))
         p.set_val("OD.balance.T4_target", t4, units="K")
+
+    # the full solution vector (design and off-design point): saved after each converged
+    # solve so a failed Newton step can go back to it
+    def _snapshot(self):
+        return self._prob.model._outputs.asarray().copy()
+
+    def _restore(self, state):
+        self._prob.model._outputs.asarray()[:] = state
+
+    def _walk(self, target, first_step: float = 0.25, min_step: float = 1 / 64):
+        """Adaptive continuation from the last converged (altitude, Mach, T4) to ``target``."""
+        start, target = self._cond.copy(), np.asarray(target, float)
+        good, k, step = self._snapshot(), 0.0, first_step
+        while k < 1.0:
+            step = min(step, 1.0 - k)
+            cond = start + (k + step) * (target - start)
+            self._set_od(*cond)
+            try:
+                self._run()
+            except AerosimError:
+                self._restore(good)
+                self._set_od(*self._cond)
+                step /= 2
+                if step < min_step:
+                    raise
+                continue
+            k += step
+            good, self._cond = self._snapshot(), cond
+            step *= 2
 
     def _run(self):
         from openmdao.api import AnalysisError
@@ -350,17 +383,12 @@ class PyCycleEngine:
         if self._prob is None:
             self.build()
         t4 = self.t4_idle + float(np.clip(power, 0, 1.2)) * (self.design["t4"] - self.t4_idle)
-        self._set_od(altitude, mach, t4)
+        target = (altitude, max(mach, 1e-6), t4)
         try:
-            self._run()
+            self._walk(target)
         except AerosimError:
-            # continuation: restart from the design point and approach the target in steps
-            d, m_d = self.design, max(self.design["mach"], 1e-6)
-            self.build()
-            for k in np.linspace(0, 1, 9)[1:]:
-                self._set_od(d["altitude"] + k * (altitude - d["altitude"]),
-                             m_d + k * (mach - m_d), d["t4"] + k * (t4 - d["t4"]))
-                self._run()
+            self.build()                    # from the design point
+            self._walk(target)
         return self._point("OD")
 
     def deck(self, altitudes, machs, powers) -> EngineDeck:
