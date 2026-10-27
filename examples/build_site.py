@@ -27,7 +27,7 @@ from aerosim.atmosphere.standard import isa
 from aerosim.core.units import G0
 from aerosim.plots import site
 from aerosim.plots.ascent_closeup import mach1_time
-from aerosim.plots.web import nav
+from aerosim.plots.web import nav, write_page
 
 T0 = time.time()
 
@@ -38,7 +38,7 @@ def log(msg):
 
 def write(name: str, text: str):
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / name).write_text(text, encoding="utf-8", newline="\n")
+    write_page(OUT / name, text)
     log(f"wrote {name} ({len(text) / 1e6:.2f} MB)")
 
 
@@ -60,12 +60,27 @@ def rockot():
 
 
 def rockot_closeup(res, veh):
+    """The close-up flies the same programme in 6-DOF, through a westerly jet stream."""
+    import rockot_first_principles as fp
+
+    from aerosim.flight.rocket.ascent6dof import SixDofAscentSim, WindProfile
+    from aerosim.flight.rocket.orbital_ascent import AscentProgram
     from aerosim.flight.stability import ROCKOT_LAYOUT
     from aerosim.plots.ascent_closeup import ascent_closeup_html
-    t_end = res.events.get("Breeze-KM_burn1_end", res.time[-1]) + 30
+    _c, _v, f = fp.load()
+    prog = AscentProgram(**{**res.meta["program"], "coast_after": 0.0})
+    wind = WindProfile()
+    res6 = SixDofAscentSim(f["latitude"], f["longitude"], program=prog, layout=ROCKOT_LAYOUT,
+                           wind=wind).run(veh)
+    log(f"6-DOF Rockot: final orbit {res6.final_orbit.perigee_alt / 1e3:.0f} x "
+        f"{res6.final_orbit.apogee_alt / 1e3:.0f} km (3-DOF {res.final_orbit.perigee_alt / 1e3:.0f} x "
+        f"{res.final_orbit.apogee_alt / 1e3:.0f} km)")
+    t_end = res6.events.get("Breeze-KM_burn1_end", res6.time[-1]) + 30
     write("rockot-closeup.html", ascent_closeup_html(
-        res, veh, title="Rockot through the atmosphere",
-        subtitle="First-principles Rockot / Breeze-KM from Plesetsk, up close  ·  AeroSim orbital_ascent",
+        res6, veh, title="Rockot through the atmosphere",
+        subtitle=(f"First-principles Rockot / Breeze-KM from Plesetsk in 6-DOF, through a "
+                  f"{wind.peak:.0f} m/s westerly jet stream at {wind.peak_altitude / 1e3:.1f} km  ·  "
+                  f"AeroSim orbital_ascent_6dof"),
         nav=nav(site.PAGES, "rockot-closeup.html"), t_end=t_end, layout=ROCKOT_LAYOUT))
 
 
@@ -458,8 +473,9 @@ def main(argv=None):
          "Rockot / Breeze-KM reference mission, on a globe.", "stats": {
              "final orbit, km": f"{orbit.perigee_alt / 1e3:.0f} × {orbit.apogee_alt / 1e3:.0f}",
              "inclination": f"{orbit.inclination:.1f}°", "models": "2"}},
-        {"href": "rockot-closeup.html", "title": "Rockot close-up", "text": "Follow the rocket up through the "
-         "layers of the atmosphere: drag, max-Q, Mach, heating, thrust gain and where the Δv goes.",
+        {"href": "rockot-closeup.html", "title": "Rockot close-up", "text": "Follow the rocket in 6-DOF up through "
+         "the layers of the atmosphere: drag, max-Q, Mach, heating, stability, angle of attack in a jet "
+         "stream and the steering autopilot.",
          "stats": {"max-Q, kPa": f"{first.dynamic_pressure.max() / 1e3:.0f}",
                    "Mach 1, s": f"{mach1_time(first.time, first.mach):.0f}", "layers": "8"}},
         {"href": "landing.html", "title": "Booster landing", "text": "Fuel-optimal landing burn by convex "

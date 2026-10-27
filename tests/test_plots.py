@@ -128,6 +128,28 @@ def test_site_pages():
     assert 'href="landing.html"' in hub
 
 
+def test_theme_switch():
+    import json
+    import re
+
+    from aerosim.plots import site
+    from aerosim.plots.style import THEMES, rc
+    from aerosim.plots.web import nav, theme_tag
+    page = site.hub_html([{"href": "a.html", "title": "A", "text": "x", "stats": {}}])
+    head = re.search(r'<style id="aerosim-themes">(.*?)</style><script>(.*?)</script>', page, re.DOTALL)
+    assert head and ":root[data-theme=carbon]" in head.group(1) and "--font:" in head.group(1)
+    assert "font/woff;base64," in head.group(1)                      # Latin Modern embedded: offline
+    themes = json.loads(re.search(r"var T=(\{.*?\}),F=", head.group(2)).group(1))
+    assert set(themes) == {"dark", "carbon", "paper"} and themes["carbon"]["academic"] and themes["carbon"]["page"] == "#000000"
+    assert themes["paper"]["key_inside"] and themes["paper"]["series"][0] == "#000000" and themes["paper"]["weights"]
+    assert ":root[data-font=technical]" in head.group(1) and "aerosim-font" in head.group(2)
+    assert "__" not in re.sub(r"<script.*?</script>", "", page, flags=re.DOTALL).replace("__init__", "")
+    assert 'class="theme"' in nav([("A", "a.html")], "a.html")
+    assert json.loads(re.search(r'id="theme">(.*?)</script>', theme_tag("dark")).group(1))["name"] == "dark"
+    r = rc("carbon")
+    assert r["axes.facecolor"] == THEMES["carbon"]["page"] and r["xtick.direction"] == "in" and not r["axes.grid"]
+
+
 def test_engine_model_geometry():
     pytest.importorskip("skfmm")
     from aerosim.plots.engine_models import nozzle_fields
@@ -147,3 +169,17 @@ def test_engine_model_geometry():
     i = int(np.argmin(r))
     assert fl["M"][i] == pytest.approx(1.0) and fl["M"][0] < 1 < fl["M"][-1]
     assert fl["T"][0] > fl["T"][i] > fl["T"][-1] and fl["p"][0] > fl["p"][-1]
+
+
+def test_theme_head_script_parses():
+    import re
+    import shutil
+    import subprocess
+
+    from aerosim.plots.web import theme_head
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    js = re.search(r"<script>(.*?)</script>", theme_head("dark"), re.DOTALL).group(1)
+    r = subprocess.run([node, "--check", "-"], check=False, input=js, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr

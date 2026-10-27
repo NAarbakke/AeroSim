@@ -140,6 +140,10 @@ class OrbitalAscentSim:
             dm = -stage.mass_flow
         return np.concatenate([v, a, [dm]])
 
+    def _initial_state(self, r0, v0, mass, n) -> np.ndarray:
+        """State vector on the pad: position, velocity (ECI), mass."""
+        return np.concatenate([r0, v0, [mass]])
+
     def _launch_direction(self, r0, n, v_orbit: float = 7_600.0) -> np.ndarray:
         """Ground-relative launch heading whose inertial velocity lies in the target plane:
         the in-plane direction at orbital speed minus the site's rotation velocity."""
@@ -239,7 +243,7 @@ class OrbitalAscentSim:
             if sol.status < 0:
                 raise RuntimeError(f"{phase}: integration failed at t={t0:.1f}: {sol.message}")
             if len(sol.t):
-                ctx["record"](np.asarray(sol.t), np.asarray(sol.y).reshape(7, -1), phase)
+                ctx["record"](np.asarray(sol.t), np.asarray(sol.y).reshape(len(y0), -1), phase)
                 t1, y1 = sol.t[-1], sol.y[:, -1]
             else:
                 t1, y1 = t0, y0
@@ -281,7 +285,8 @@ class OrbitalAscentSim:
 
         ctx = {"veh": vehicle, "atm": atmosphere, "fairing_on": vehicle.fairing_mass > 0,
                "events": events, "record": record}
-        y = np.concatenate([r0, v0, [vehicle.liftoff_mass]])
+        self._ctx = ctx                          # read by subclasses' dynamics (staging state)
+        y = self._initial_state(r0, v0, vehicle.liftoff_mass, n)
         t = 0.0
         stages = vehicle.stages
         # lower stages

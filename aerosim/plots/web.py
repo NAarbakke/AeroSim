@@ -13,13 +13,20 @@ import json
 import math
 
 from aerosim.plots.replay import _importmap
-from aerosim.plots.style import THEMES
+from aerosim.plots.style import DARK_THEMES, FONTS, SITE_THEMES, THEMES
 
 CSS = r"""
-:root{--surface:__SURFACE__;--page:__PAGE__;--ink:__INK__;--ink2:__INK2__;--muted:__MUTED__;
---grid:__GRID__;--axis:__AXIS__;--accent:__SERIES0__}
 *{box-sizing:border-box}html,body{margin:0;background:var(--page);color:var(--ink);
-font:14px/1.45 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif}
+font:14px/1.45 var(--font)}
+:root[data-theme=carbon] body,:root[data-theme=paper] body{font-size:15px;font-variant-numeric:lining-nums}
+:root[data-theme=carbon] h3,:root[data-theme=paper] h3{font-weight:700;letter-spacing:.01em}
+:root[data-theme=carbon] .card,:root[data-theme=carbon] button,:root[data-theme=carbon] select{border-radius:2px}
+:root[data-theme=paper] .card,:root[data-theme=paper] .panel,:root[data-theme=paper] .tile,
+:root[data-theme=paper] button,:root[data-theme=paper] select{border-radius:0}
+:root[data-theme=paper] nav.top{border-bottom-color:#000}
+:root[data-theme=paper] nav.top a[aria-current]{border-color:#000}
+nav.top select.theme{margin-left:auto;padding:2px 8px;font-size:12px}
+nav.top select.font{padding:2px 8px;font-size:12px}
 a{color:var(--ink)}
 nav.top{display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;padding:10px 20px;
 background:var(--surface);border-bottom:1px solid var(--grid);font-size:13px}
@@ -57,6 +64,41 @@ td.good{color:var(--ink)}td.dev{color:var(--ink2)}
 
 CHART_JS = r"""
 const TKC = JSON.parse(document.getElementById("theme").textContent);
+// carbon: pgfplots-like charts - framed axes, inward ticks on all four sides, no grid, serif
+// labels, thin lines told apart by dash pattern as well as colour
+const ACAD = !!TKC.academic, CFONT = TKC.font || "system-ui, sans-serif";
+const DASHES = [[], [6, 3], [1.5, 2.5], [8, 3, 1.5, 3], [3, 2], [10, 4], [1, 4], [5, 2, 1, 2]];
+const dashOf = i => ACAD ? DASHES[i % DASHES.length] : [];
+const LW = ACAD ? 1.25 : 2, KEYIN = !!TKC.key_inside, GHOST = KEYIN ? 0.12 : ACAD ? 0.3 : 0.25;
+const lwOf = i => !ACAD ? 2 : TKC.weights ? TKC.weights[Math.min(i, TKC.weights.length - 1)] : LW;
+// paper: the key sits inside the frame, top right, without a box (as pgfplots / matplotlib place
+// it); the HTML legend above the chart is then hidden. items = [{name, color, dash}]
+function insideKey(cv, c, L, T, W, items) {
+  if (!KEYIN) return;
+  const lg = [cv.previousElementSibling, cv.parentElement && cv.parentElement.previousElementSibling]
+    .find(e => e && e.classList && e.classList.contains("legend"));
+  if (lg) lg.style.display = "none";
+  if (items.length < 2) return;
+  c.save(); c.font = "11.5px " + CFONT; c.textBaseline = "middle";
+  const rows = [[]], gap = 12, sw = 22, maxW = W - 12; let w = 0;
+  for (const it of items) { const iw = sw + 4 + c.measureText(it.name).width;
+    if (w > 0 && w + gap + iw > maxW) { rows.push([]); w = 0; } rows[rows.length - 1].push([it, iw]); w += (w ? gap : 0) + iw; }
+  rows.forEach((row, r) => { let x = L + W - 6 - row.reduce((a, [, iw], k) => a + iw + (k ? gap : 0), 0); const y = T + 10 + r * 15;
+    c.fillStyle = TKC.page; c.globalAlpha = 0.85; c.fillRect(x - 3, y - 7, row.reduce((a, [, iw], k) => a + iw + (k ? gap : 0), 0) + 6, 14); c.globalAlpha = 1;
+    for (const [it, iw] of row) { c.strokeStyle = it.color; c.lineWidth = it.lw || 1.2; c.setLineDash(it.dash || []);
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x + sw, y); c.stroke(); c.setLineDash([]);
+      c.fillStyle = TKC.ink; c.textAlign = "left"; c.fillText(it.name, x + sw + 4, y + 0.5); x += iw + gap; } });
+  c.restore();
+}
+// grid line (default) or a pair of inward ticks on both sides (academic), y at pixel py
+function yTick(c, L, W, py) { c.beginPath();
+  if (ACAD) { c.strokeStyle = TKC.ink; c.lineWidth = 0.75; c.moveTo(L, py); c.lineTo(L + 4, py); c.moveTo(L + W - 4, py); c.lineTo(L + W, py); }
+  else { c.strokeStyle = TKC.grid; c.lineWidth = 1; c.moveTo(L, py); c.lineTo(L + W, py); }
+  c.stroke(); }
+function xTick(c, T, H, px) { if (!ACAD) return; c.beginPath(); c.strokeStyle = TKC.ink; c.lineWidth = 0.75;
+  c.moveTo(px, T + H); c.lineTo(px, T + H - 4); c.moveTo(px, T); c.lineTo(px, T + 4); c.stroke(); }
+function frameBox(c, L, T, W, H) { if (!ACAD) return; c.strokeStyle = TKC.ink; c.lineWidth = 0.75; c.setLineDash([]); c.strokeRect(L + 0.5, T + 0.5, W, H); }
+const tickInk = () => ACAD ? TKC.ink : TKC.ink2;
 const niceStep = x => { const p = Math.pow(10, Math.floor(Math.log10(x)));
   for (const s of [1, 2, 2.5, 5, 10]) if (s * p >= x - 1e-12) return s * p; };
 function axisRange(lo, hi, n = 4, zero = false) {
@@ -72,7 +114,7 @@ function setup(cv) {
   if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
   const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, r.width, r.height);
-  c.font = "11px Segoe UI, system-ui, sans-serif"; return [c, r.width, r.height];
+  c.font = (ACAD ? "12.5px " : "11px ") + CFONT; return [c, r.width, r.height];
 }
 // static line chart: o = {series:[{name,color,x,y,dash}], xl, yl, zero, xr, yr, digits}
 function lineChart(cv, o) {
@@ -84,14 +126,14 @@ function lineChart(cv, o) {
     const [y0, y1, yst] = o.yr || axisRange(Math.min(...ys), Math.max(...ys), 4, o.zero);
     const L = 42, B = 30, T = 8, W = w - L - 10, H = h - B - T;
     const X = x => L + (x - x0) / (x1 - x0) * W, Y = y => T + H - (y - y0) / (y1 - y0) * H;
-    c.strokeStyle = TKC.grid; c.lineWidth = 1; c.fillStyle = TKC.ink2;
-    for (let y = y0; y <= y1 + yst / 2; y += yst) { c.beginPath(); c.moveTo(L, Y(y)); c.lineTo(L + W, Y(y)); c.stroke();
+    c.fillStyle = tickInk();
+    for (let y = y0; y <= y1 + yst / 2; y += yst) { yTick(c, L, W, Y(y));
       c.textAlign = "right"; c.fillText(fmtN(y, yst), L - 6, Y(y) + 4); }
-    for (let x = x0; x <= x1 + xst / 2; x += xst) { c.textAlign = "center"; c.fillText(fmtN(x, xst), X(x), T + H + 14); }
+    for (let x = x0; x <= x1 + xst / 2; x += xst) { xTick(c, T, H, X(x)); c.textAlign = "center"; c.fillText(fmtN(x, xst), X(x), T + H + 14); }
     c.textAlign = "right"; c.fillText(o.xl || "", L + W, h - 2);
     c.save(); c.translate(10, T); c.textAlign = "left"; c.restore();
-    for (const s of o.series) {
-      c.strokeStyle = s.color; c.lineWidth = 2; c.lineJoin = "round"; c.setLineDash(s.dash ? [5, 4] : []);
+    o.series.forEach((s, si) => {
+      c.strokeStyle = s.color; c.lineWidth = lwOf(si); c.lineJoin = "round"; c.setLineDash(s.dash ? [5, 4] : dashOf(si));
       c.beginPath(); let pen = false;
       for (let i = 0; i < s.x.length; i++) { if (!Number.isFinite(s.y[i])) { pen = false; continue; }
         pen ? c.lineTo(X(s.x[i]), Y(s.y[i])) : c.moveTo(X(s.x[i]), Y(s.y[i])); pen = true; }
@@ -99,7 +141,9 @@ function lineChart(cv, o) {
       if (s.marks) for (let i = 0; i < s.x.length; i++) if (Number.isFinite(s.y[i])) {
         c.beginPath(); c.arc(X(s.x[i]), Y(s.y[i]), 4, 0, 7); c.fillStyle = s.color; c.fill();
         c.lineWidth = 2; c.strokeStyle = TKC.surface; c.stroke(); }
-    }
+    });
+    frameBox(c, L, T, W, H);
+    insideKey(cv, c, L, T, W, o.series.map((s, si) => ({name: s.name, color: s.color, dash: s.dash ? [5, 4] : dashOf(si), lw: lwOf(si)})));
     if (hx != null) {
       const xv = x0 + (hx - L) / W * (x1 - x0);
       c.strokeStyle = TKC.axis; c.lineWidth = 1; c.beginPath(); c.moveTo(hx, T); c.lineTo(hx, T + H); c.stroke();
@@ -120,8 +164,9 @@ function lineChart(cv, o) {
   cv.onmousemove = e => draw(e.offsetX); cv.onmouseleave = () => draw(null);
   draw(null); addEventListener("resize", () => draw(null));
 }
-function legend(el, series) { el.innerHTML = series.length > 1 ? series.map(s =>
-  `<span><i style="background:${s.color}${s.dash ? ";opacity:.6" : ""}"></i>${s.name}</span>`).join("") : ""; }
+function legend(el, series) { el.innerHTML = series.length > 1 ? series.map((s, i) => ACAD
+  ? `<span><svg width="22" height="6" aria-hidden="true" style="margin-right:5px;vertical-align:middle"><line x1="0" y1="3" x2="22" y2="3" stroke="${s.color}" stroke-width="1.4" stroke-dasharray="${(s.dash ? [5, 4] : dashOf(i)).join(" ")}"/></svg>${s.name}</span>`
+  : `<span><i style="background:${s.color}${s.dash ? ";opacity:.6" : ""}"></i>${s.name}</span>`).join("") : ""; }
 // horizontal dot plot of percent deviation: rows = [{label, value, color, note}]
 function devChart(cv, rows, lim = 20) {
   const r0 = cv.getBoundingClientRect(); cv.style.height = (rows.length * 26 + 34) + "px";
@@ -153,21 +198,90 @@ function devChart(cv, rows, lim = 20) {
 """
 
 
-def themed(text: str, theme: str = "dark") -> str:
-    """Fill ``__TOKEN__`` placeholders from the theme (``__SERIES0__`` = first series colour)."""
+def _flat(theme: str) -> dict:
     T = THEMES[theme]
-    text = text.replace("__SERIES0__", T["series"][0])
+    return {**{k: v for k, v in T.items() if isinstance(v, (str, bool, list))},
+            "dark": theme in DARK_THEMES, "name": theme}
+
+
+def _font_faces() -> str:
+    """@font-face rules for the site's typefaces (Latin Modern and B612 subsets), embedded so they
+    work offline and from file://."""
+    import base64
+    from importlib import resources
+    out = []
+    for fam, f, style, weight in (("Latin Modern Roman", "lmroman10-regular", "normal", 400),
+                                  ("Latin Modern Roman", "lmroman10-italic", "italic", 400),
+                                  ("Latin Modern Roman", "lmroman10-bold", "normal", 700),
+                                  ("Latin Modern Mono", "lmmono10-regular", "normal", 400),
+                                  ("B612", "B612-Regular", "normal", 400),
+                                  ("B612", "B612-Italic", "italic", 400),
+                                  ("B612", "B612-Bold", "normal", 700)):
+        b = resources.files("aerosim.plots").joinpath(f"data/fonts/{f}.woff").read_bytes()
+        out.append(f'@font-face{{font-family:"{fam}";font-style:{style};font-weight:{weight};'
+                   f'font-display:swap;src:url(data:font/woff;base64,{base64.b64encode(b).decode()}) format("woff")}}')
+    return "".join(out)
+
+
+def theme_head(default: str = "dark") -> str:
+    """Put in <head>: every switchable theme's tokens as CSS variables, the carbon fonts, and a
+    script that applies the theme stored by the nav toggle (localStorage, if available) before the
+    page renders. Pages keep reading their ``theme`` JSON tag; ``theme_tag`` points it at the
+    chosen theme."""
+    def block(name):
+        T = THEMES[name]
+        v = ";".join(f"--{k}:{T[k]}" for k in ("surface", "page", "ink", "ink2", "muted", "grid", "axis", "font", "mono"))
+        s = ";".join(f"--s{i}:{c}" for i, c in enumerate(T["series"]))
+        return f"{v};{s};--accent:{T['series'][0]}"
+    names = SITE_THEMES if default in SITE_THEMES else (default,)
+    css = f":root{{{block(default)}}}" + "".join(f":root[data-theme={n}]{{{block(n)}}}" for n in names)
+    # the typeface choice comes after the themes so it overrides their --font / --mono
+    css += "".join(f":root[data-font={k}]{{--font:{v['font']};--mono:{v['mono']}}}" for k, v in FONTS.items())
+    css += (":root[data-font=technical] body{font-size:13.5px;letter-spacing:.005em}"
+            ":root[data-font=technical] #clock,:root[data-font=technical] #gauges div,"
+            ":root[data-font=technical] #tclock,:root[data-font=technical] .tm div"
+            "{font-variant-numeric:tabular-nums;letter-spacing:0}")
+    themes = json.dumps({n: _flat(n) for n in names}, separators=(",", ":"))
+    fonts = json.dumps({k: {"font": v["font"], "mono": v["mono"]} for k, v in FONTS.items()},
+                       separators=(",", ":"))
+    js = (f"(function(){{var T={themes},F={fonts},d={json.dumps(default)},t=d,f='theme';"
+          "try{t=localStorage.getItem('aerosim-theme')||d;f=localStorage.getItem('aerosim-font')||f}catch(e){}"
+          "if(!T[t])t=d;var th=Object.assign({},T[t]);"
+          "if(F[f]){th.font=F[f].font;th.mono=F[f].mono;document.documentElement.setAttribute('data-font',f)}"
+          "document.documentElement.setAttribute('data-theme',t);window.AEROSIM_THEME=th;})();")
+    return f'<style id="aerosim-themes">{_font_faces()}{css}</style><script>{js}</script>'
+
+
+def themed(text: str, theme: str = "dark") -> str:
+    """Point ``__TOKEN__`` placeholders at the theme's CSS variables (``__SERIES0__`` = the accent)
+    so the page follows the theme chosen at run time; a full page also gets ``theme_head``."""
+    T = THEMES[theme]
+    text = text.replace("__SERIES0__", "var(--accent)")
     for k, v in T.items():
         if isinstance(v, str):
-            text = text.replace(f"__{k.upper()}__", v)
+            text = text.replace(f"__{k.upper()}__", f"var(--{k})")
+    if "<head>" in text and 'id="aerosim-themes"' not in text:
+        text = text.replace("<head>", "<head>" + theme_head(theme), 1)
     return text
 
 
 def nav(pages: list[tuple[str, str]], current: str) -> str:
-    """Top navigation bar: [(label, href), ...]; ``current`` is the active href."""
+    """Top navigation bar: [(label, href), ...]; ``current`` is the active href. The select at
+    the right switches the site's theme (stored in localStorage; the page reloads)."""
     links = "".join(f'<a href="{h}"{" aria-current=page" if h == current else ""}>{html.escape(n)}</a>'
                     for n, h in pages)
-    return f'<nav class="top"><b>AeroSim</b>{links}</nav>'
+    opts = "".join(f'<option value="{n}">{n.capitalize()}</option>' for n in SITE_THEMES)
+    switch = ('<select class="theme" aria-label="Theme" onchange="try{localStorage.setItem(\'aerosim-theme\','
+              f'this.value)}}catch(e){{}}location.reload()">{opts}</select>'
+              '<script>document.currentScript.previousElementSibling.value='
+              'document.documentElement.getAttribute("data-theme")||"dark"</script>')
+    fopts = '<option value="theme">Theme type</option>' + "".join(
+        f'<option value="{k}">{html.escape(v["label"])}</option>' for k, v in FONTS.items())
+    switch += ('<select class="font" aria-label="Typeface" onchange="try{localStorage.setItem(\'aerosim-font\','
+               f'this.value)}}catch(e){{}}location.reload()">{fopts}</select>'
+               '<script>document.currentScript.previousElementSibling.value='
+               'document.documentElement.getAttribute("data-font")||"theme"</script>')
+    return f'<nav class="top"><b>AeroSim</b>{links}{switch}</nav>'
 
 
 def _finite(o):
@@ -187,10 +301,32 @@ def data_tag(obj, id_: str = "data") -> str:
 
 
 def theme_tag(theme: str = "dark") -> str:
-    T = THEMES[theme]
-    return data_tag({**{k: v for k, v in T.items() if isinstance(v, str)}, "series": T["series"],
-                     "dark": theme == "dark"}, "theme")
+    """The page's ``theme`` JSON (tokens for scripts), switched to the run-time theme if one was
+    chosen (see ``theme_head``)."""
+    return data_tag(_flat(theme), "theme") + (
+        '<script>(function(){var e=document.getElementById("theme");'
+        'if(window.AEROSIM_THEME&&e)e.textContent=JSON.stringify(window.AEROSIM_THEME)})()</script>')
 
 
 def importmap_tag(gltf: bool = False) -> str:
     return f'<script type="importmap">{_importmap(gltf)}</script>'
+
+
+def write_page(path, text: str, tries: int = 20) -> None:
+    """Write a page atomically: a temporary sibling, then a rename over the target. On Windows a
+    freshly written large file is often held for a moment by a scanner or indexer, so the rename
+    is retried briefly instead of failing the build (and a failed build never leaves half a page)."""
+    import os
+    import time
+    from pathlib import Path
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8", newline="\n")
+    for k in range(tries):
+        try:
+            os.replace(tmp, path)
+            return
+        except OSError:
+            if k == tries - 1:
+                raise
+            time.sleep(0.25)

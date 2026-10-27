@@ -44,6 +44,7 @@ import aerosim.propulsion  # noqa: F401  (registers the engine backends)
 from aerosim.core import registry
 from aerosim.plots import site
 from aerosim.plots import terrain_site as ts
+from aerosim.plots.web import write_page
 from aerosim.terrain import ATTRIBUTION, TerrainGrid
 from aerosim.terrain.dem import COPERNICUS_LIABILITY
 from aerosim.terrain.flight import fly_route
@@ -164,7 +165,7 @@ def grounds_for(key: str, r: dict, g: TerrainGrid) -> list[dict]:
             L.save(path, **({"quality": 75} if spec["source"] == "n50" else {}))
         side = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
         gid = f"{key}-{layer}"
-        (OUT / "terrain-img" / f"{gid}.js").write_text(ts.ground_script(gid, path), encoding="utf-8")
+        write_page(OUT / "terrain-img" / f"{gid}.js", ts.ground_script(gid, path))
         out.append({"id": gid, "label": label, "credit": side["credit"], "src": f"terrain-img/{gid}.js",
                     **({"legend": side["legend"]} if "legend" in side else {})})
     return out
@@ -258,7 +259,7 @@ def main(argv=None):
                                       clearance=CLEARANCE, pages=PAGES, current="terrain.html",
                                       notes=notes, subnav=SUBNAV, here=f"terrain-{key}.html",
                                       grounds=grounds_for(key, r, g))
-        (OUT / f"terrain-{key}.html").write_text(page, encoding="utf-8", newline="\n")
+        write_page(OUT / f"terrain-{key}.html", page)
         log(f"wrote terrain-{key}.html ({len(page) / 1e6:.2f} MB)")
         st = [ts.flight_stats(m) for m in models]
         lows += [float(s["lowest above ground, m"]) for s in st]
@@ -266,9 +267,8 @@ def main(argv=None):
                     "text": f"{r['subtitle']}<br>Valley route {st[0]['route, km']} km, lowest "
                             f"{st[0]['lowest above ground, m']} m above ground; direct line "
                             f"{st[1]['route, km']} km, lowest {st[1]['lowest above ground, m']} m."})
-    (OUT / "terrain.html").write_text(ts.terrain_hub_html(hub, vrows, pages=PAGES, method=METHOD,
-                                                          credits=CREDITS, current="terrain.html"),
-                                      encoding="utf-8", newline="\n")
+    write_page(OUT / "terrain.html", ts.terrain_hub_html(hub, vrows, pages=PAGES, method=METHOD,
+                                                         credits=CREDITS, current="terrain.html"))
     log("wrote terrain.html")
     SUMMARY.parent.mkdir(parents=True, exist_ok=True)
     SUMMARY.write_text(json.dumps({"regions": str(len(hub)), "flights": str(len(lows)),

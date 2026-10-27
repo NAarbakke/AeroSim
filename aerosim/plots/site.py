@@ -71,9 +71,9 @@ grid-template-rows:minmax(0,1fr) auto}
 #hud{position:absolute;left:20px;top:16px;pointer-events:none;max-width:70%}
 #hud h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
 #hud p{margin:2px 0 0;color:var(--ink2);font-size:13px}
-#clock{position:absolute;left:20px;bottom:14px;font:600 30px/1 Consolas,"SF Mono",monospace;
+#clock{position:absolute;left:20px;bottom:14px;font:600 30px/1 var(--mono);
 pointer-events:none;font-variant-numeric:tabular-nums}
-#clock small{display:block;font:500 12px/1.6 "Segoe UI",system-ui,sans-serif;color:var(--ink2)}
+#clock small{display:block;font:500 12px/1.6 var(--font);color:var(--ink2)}
 #side{grid-row:1/3;grid-column:2;overflow-y:auto;background:var(--surface);
 border-left:1px solid var(--grid);padding:16px 18px 20px}
 canvas.chart.t{height:150px}
@@ -94,6 +94,7 @@ import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 const D = JSON.parse(document.getElementById("data").textContent), TK = TKC;
 const M = D.models, tEnd = Math.max(...M.map(m => m.t[m.t.length - 1]));
+M.forEach((m, i) => { m.color = TK.series[i % TK.series.length]; });   // the run-time theme's palette
 // scene frame: x = east, y = up, z = -north, in units of U metres
 let lo = [1e99, 1e99, 1e99], hi = [-1e99, -1e99, -1e99];
 for (const m of M) for (let i = 0; i < m.t.length; i++) { const p = [m.x[i], m.y[i], m.z[i]];
@@ -190,7 +191,7 @@ function find(a, x) { let lo = 0, hi = a.length - 1; if (x <= a[0]) return 0; if
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (a[mid] <= x) lo = mid; else hi = mid; } return lo; }
 function sample(m, t) {
   const i = find(m.t, t), j = Math.min(i + 1, m.t.length - 1);
-  const f = j > i ? Math.min(Math.max((t - m.t[i]) / (m.t[j] - m.t[i]), 0), 1) : 0;
+  const f = m.t[j] > m.t[i] ? Math.min(Math.max((t - m.t[i]) / (m.t[j] - m.t[i]), 0), 1) : 0;   // repeated times: no 0/0
   const L = a => a[i] + (a[j] - a[i]) * f;
   const P = k => new THREE.Vector3(m.pos[3 * k], m.pos[3 * k + 1], m.pos[3 * k + 2]);
   const p = P(i).lerp(P(j), f), vel = P(j).sub(P(i));
@@ -249,21 +250,24 @@ function timeChart(cv, key, t) {
   let ymin = 1e99, ymax = -1e99; for (const m of M) for (const v of m.ch[key]) { ymin = Math.min(ymin, v); ymax = Math.max(ymax, v); }
   const [y0, y1, yst] = axisRange(ymin, ymax, 4, D.zero?.includes(key)), [, x1, xst] = axisRange(0, tEnd, 4, true);
   const L = 42, B = 18, T = 6, W = w - L - 10, H = h - B - T, X = x => L + x / x1 * W, Y = y => T + H - (y - y0) / (y1 - y0) * H;
-  c.strokeStyle = TK.grid; c.lineWidth = 1; c.fillStyle = TK.ink2;
-  for (let y = y0; y <= y1 + yst / 2; y += yst) { c.beginPath(); c.moveTo(L, Y(y)); c.lineTo(L + W, Y(y)); c.stroke();
+  c.fillStyle = tickInk();
+  for (let y = y0; y <= y1 + yst / 2; y += yst) { yTick(c, L, W, Y(y));
     c.textAlign = "right"; c.fillText(fmtN(y, yst), L - 6, Y(y) + 4); }
-  for (let x = 0; x <= x1 + xst / 2; x += xst) { c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center";
+  for (let x = 0; x <= x1 + xst / 2; x += xst) { xTick(c, T, H, X(x)); c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center";
     c.fillText(fmtN(x, xst) + (x + xst > x1 + xst / 2 ? " s" : ""), X(x), h - 3); }
-  for (const m of M) {
-    for (const [full, alpha] of [[true, 0.25], [false, 1]]) {
-      c.strokeStyle = m.color; c.globalAlpha = alpha; c.lineWidth = 2; c.lineJoin = "round"; c.beginPath();
+  M.forEach((m, mi) => {
+    c.setLineDash(dashOf(mi));
+    for (const [full, alpha] of [[true, GHOST], [false, 1]]) {
+      c.strokeStyle = m.color; c.globalAlpha = alpha; c.lineWidth = lwOf(mi); c.lineJoin = "round"; c.beginPath();
       for (let i = 0; i < m.t.length; i++) { if (!full && m.t[i] > t) break;
         i ? c.lineTo(X(m.t[i]), Y(m.ch[key][i])) : c.moveTo(X(m.t[i]), Y(m.ch[key][i])); }
       c.stroke();
     }
-    c.globalAlpha = 1; c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(m.s.ch[key]), 5, 0, 7);
-    c.fillStyle = m.color; c.fill(); c.lineWidth = 2; c.strokeStyle = TK.surface; c.stroke();
-  }
+    c.globalAlpha = 1; c.setLineDash([]); c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(m.s.ch[key]), ACAD ? 3 : 5, 0, 7);
+    c.fillStyle = m.color; c.fill(); c.lineWidth = ACAD ? 1 : 2; c.strokeStyle = TK.surface; c.stroke();
+  });
+  frameBox(c, L, T, W, H);
+  insideKey(cv, c, L, T, W, M.map((m, mi) => ({name: m.name, color: m.color, dash: dashOf(mi), lw: lwOf(mi)})));
 }
 
 // ---------- time ----------

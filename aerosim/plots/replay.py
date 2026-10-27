@@ -83,10 +83,8 @@ def replay_html(results, site: tuple[float, float], title: str = "Ascent replay"
                        for i, (k, r) in enumerate(results.items())],
             "site": list(site), "coast": coast, "theme": T, "dark": theme == "dark"}
     page = _PAGE.replace("__TITLE__", html.escape(title)).replace("__SUB__", html.escape(subtitle))
-    page = page.replace("__SERIES0__", T["series"][0])
-    for k, v in T.items():
-        if isinstance(v, str):
-            page = page.replace(f"__{k.upper()}__", v)
+    from aerosim.plots.web import themed
+    page = themed(page, theme)              # CSS variables + the run-time theme switch
     page = page.replace("__DATA__", json.dumps(data, separators=(",", ":")).replace("</", "<\\/"))
     if nav:                                   # inside the results site: nav bar above the replay
         from aerosim.plots.web import CSS, themed
@@ -111,16 +109,16 @@ _PAGE = r"""<!doctype html>
 :root{--surface:__SURFACE__;--page:__PAGE__;--ink:__INK__;--ink2:__INK2__;--muted:__MUTED__;
 --grid:__GRID__;--axis:__AXIS__}
 *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--page);color:var(--ink);
-font:14px/1.4 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif}
+font:14px/1.4 var(--font)}
 #app{display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:minmax(0,1fr) auto;
 height:100vh}
 #globe{position:relative;min-height:0;background:var(--page)}#globe canvas{display:block}
 #hud{position:absolute;left:20px;top:16px;pointer-events:none}
 #hud h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
 #hud p{margin:2px 0 0;color:var(--ink2);font-size:13px}
-#clock{position:absolute;left:20px;bottom:14px;font:600 30px/1 Consolas,"SF Mono",monospace;
+#clock{position:absolute;left:20px;bottom:14px;font:600 30px/1 var(--mono);
 pointer-events:none;font-variant-numeric:tabular-nums}
-#clock small{display:block;font:500 12px/1.6 "Segoe UI",system-ui,sans-serif;color:var(--ink2)}
+#clock small{display:block;font:500 12px/1.6 var(--font);color:var(--ink2)}
 #side{grid-row:1/3;grid-column:2;overflow-y:auto;background:var(--surface);
 border-left:1px solid var(--grid);padding:16px 18px 20px}
 .card{border:1px solid var(--grid);border-radius:8px;padding:10px 12px;margin-bottom:10px}
@@ -178,7 +176,8 @@ label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;c
 <script type="module">
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
-const D = JSON.parse(document.getElementById("data").textContent), TK = D.theme;
+const D = JSON.parse(document.getElementById("data").textContent), TK = window.AEROSIM_THEME || D.theme;
+if (window.AEROSIM_THEME) { D.dark = !!TK.dark; D.models.forEach((m, i) => { m.color = TK.series[i % TK.series.length]; }); }
 const R = 6.371, KM = 1e-3;                       // scene unit = 1000 km
 const M = D.models, tEnd = Math.max(...M.map(m => m.t[m.t.length - 1]));
 const rad = Math.PI / 180;
@@ -297,22 +296,37 @@ function chart(cv, key, t) {
   const step = nice((ymax * 1.05 || 1) / 4); ymax = step * 4;
   const L = 34, B = 18, W = r.width - L - 8, H = r.height - B - 6;
   const X = x => L + x / xmax * W, Y = y => 6 + H - y / ymax * H;
-  c.font = "11px Segoe UI, system-ui, sans-serif"; c.fillStyle = TK.ink2; c.strokeStyle = TK.grid; c.lineWidth = 1;
-  for (let k = 0; k <= 4; k++) { const y = ymax * k / 4; c.beginPath(); c.moveTo(L, Y(y)); c.lineTo(L + W, Y(y)); c.stroke();
+  const A = !!TK.academic, KI = !!TK.key_inside, DASH = [[], [6, 3], [1.5, 2.5], [8, 3, 1.5, 3]];
+  const lw = i => !A ? 2 : TK.weights ? TK.weights[Math.min(i, TK.weights.length - 1)] : 1.25, dash = i => A ? DASH[i % 4] : [];
+  c.font = (A ? "12.5px " : "11px ") + (TK.font || "system-ui, sans-serif"); c.fillStyle = A ? TK.ink : TK.ink2;
+  const tick = (x0, y0, x1, y1) => { c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); };
+  for (let k = 0; k <= 4; k++) { const y = ymax * k / 4;
+    if (A) { c.strokeStyle = TK.ink; c.lineWidth = 0.75; tick(L, Y(y), L + 4, Y(y)); tick(L + W - 4, Y(y), L + W, Y(y)); }
+    else { c.strokeStyle = TK.grid; c.lineWidth = 1; tick(L, Y(y), L + W, Y(y)); }
     c.textAlign = "right"; c.fillText(+y.toFixed(1), L - 5, Y(y) + 4); }
-  for (let k = 0; k <= 4; k++) { c.textAlign = k === 4 ? "right" : "center";
-    c.fillText((xmax * k / 4).toFixed(0) + (k === 4 ? " s" : ""), X(xmax * k / 4), r.height - 3); }
-  for (const m of M) {
-    for (const [full, alpha] of [[true, 0.25], [false, 1]]) {
-      c.strokeStyle = m.color; c.globalAlpha = alpha; c.lineWidth = 2; c.lineJoin = "round"; c.beginPath();
+  for (let k = 0; k <= 4; k++) { const x = X(xmax * k / 4); if (A) { tick(x, 6 + H, x, 2 + H); tick(x, 6, x, 10); }
+    c.textAlign = k === 4 ? "right" : "center";
+    c.fillText((xmax * k / 4).toFixed(0) + (k === 4 ? " s" : ""), x, r.height - 3); }
+  M.forEach((m, mi) => { c.setLineDash(dash(mi));
+    for (const [full, alpha] of [[true, KI ? 0.12 : A ? 0.3 : 0.25], [false, 1]]) {
+      c.strokeStyle = m.color; c.globalAlpha = alpha; c.lineWidth = lw(mi); c.lineJoin = "round"; c.beginPath();
       for (let i = 0; i < m.t.length && m.t[i] <= xmax; i++) { if (!full && m.t[i] > t) break;
         i ? c.lineTo(X(m.t[i]), Y(m[key][i])) : c.moveTo(X(m.t[i]), Y(m[key][i])); }
       c.stroke();
     }
-    c.globalAlpha = 1; const s = m.s;
-    c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(s[key]), 5, 0, 7);
-    c.fillStyle = m.color; c.fill(); c.lineWidth = 2; c.strokeStyle = TK.surface; c.stroke();
-  }
+    c.globalAlpha = 1; c.setLineDash([]); const s = m.s;
+    c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(s[key]), A ? 3 : 5, 0, 7);
+    c.fillStyle = m.color; c.fill(); c.lineWidth = A ? 1 : 2; c.strokeStyle = TK.surface; c.stroke();
+  });
+  if (A) { c.strokeStyle = TK.ink; c.lineWidth = 0.75; c.strokeRect(L + 0.5, 6.5, W, H); }
+  if (KI && M.length > 1) {                     // key inside the frame, top right, no box
+    const lg = cv.previousElementSibling; if (lg && lg.classList.contains("legend")) lg.style.display = "none";
+    c.font = "11.5px " + TK.font; c.textBaseline = "middle"; let x = L + W - 6;
+    for (let mi = M.length - 1; mi >= 0; mi--) { const m = M[mi], tw = c.measureText(m.name).width; x -= tw + 26;
+      c.fillStyle = TK.page; c.globalAlpha = 0.85; c.fillRect(x - 3, 9, tw + 32, 14); c.globalAlpha = 1;
+      c.strokeStyle = m.color; c.lineWidth = lw(mi); c.setLineDash(dash(mi)); c.beginPath(); c.moveTo(x, 16); c.lineTo(x + 22, 16); c.stroke(); c.setLineDash([]);
+      c.fillStyle = TK.ink; c.textAlign = "left"; c.fillText(m.name, x + 26, 16.5); x -= 12; }
+    c.textBaseline = "alphabetic"; }
 }
 
 // ---------- time ----------

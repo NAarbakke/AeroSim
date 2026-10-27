@@ -105,7 +105,9 @@ aerosim/
 │   ├── orbits.py         Earth model (WGS-84, J2, rotation), orbit elements
 │   ├── rocket/           point_mass.py (3-DOF) · planar.py (attitude, TVC) ·
 │   │                     orbital_ascent.py (multi-stage launcher to orbit; programme fitting
-│   │                     and trajectory optimisation)
+│   │                     and trajectory optimisation) · ascent6dof.py (the same ascent in
+│   │                     6-DOF: attitude, TVC autopilot, wind, RocketPy wind profiles,
+│   │                     python-control margins)
 │   └── adapters/         rocketpy_sim (6-DOF) · jsbsim_sim (JSBSim airframe on an AeroSim
 │                         engine deck, autopilot)
 ├── gnc/              guidance & control
@@ -195,7 +197,9 @@ built-in model.
 | Optimization | OpenMDAO solid-apogee component | working skeleton |
 | Plots | `aerosim.plots` (validated colour-blind-safe palette, light/dark) | working |
 | Plots | 3D ascent replay (`aerosim.plots.replay`, three.js page, works offline) | working |
+| Plots | Site themes: Dark, Carbon (pure black) and Paper (white, after LaTeX publication figures: black and grey lines, frameless key inside the plot); Carbon and Paper use Latin Modern and pgfplots-style framed charts with inward ticks and dashed series. Typeface chosen separately: the theme's own, LaTeX serif, or Technical (B612, Airbus's cockpit-display face). Both switched in the nav bar and remembered per browser; `style.rc("carbon", pgf=True)` gives the same look in matplotlib through the pgf backend (lualatex) | working; fonts embedded, so it works offline |
 | Flight | Pitch stability along the ascent (`aerosim.flight.stability`): CG from a mass layout with draining tanks, Barrowman CP, static margin, time to double, gimbal per degree of AoA | working; layout mass matches the simulator to 1e-14; Rockot −6.1 to −2.6 calibers, doubling every 0.43 s at max-Q |
+| Flight | 6-DOF orbital ascent (`aerosim.flight.rocket.ascent6dof`): the 3-DOF flight programme flown by a gain-scheduled TVC autopilot (attitude and capped-rate loops, actuator lag and limits) with Barrowman normal force, aerodynamic and jet damping, draining-tank CG and inertia, wind (parametric or any RocketPy `Environment`); autopilot gain and phase margins with python-control | working; with the normal force removed it reproduces the 3-DOF trajectory to 0.2°; Rockot in a 35 m/s jet stream: 4.5° AoA and 1.9° gimbal at max-Q, phase margin 38°, final orbit within 8 km of the 3-DOF; ~20 s per flight |
 | Plots | Ascent close-up (`aerosim.plots.ascent_closeup`): three.js Rockot model, sky / Earth scattering shader, atmospheric layers, drag, max-Q, heating, thrust gain and Δv losses | working; US76 thermosphere temperatures match the 1976 tables within 0.6 K |
 | Plots | Results site (`aerosim.plots.site`, `examples/build_site.py`): landing, F-16 and hybrid 3D replays, engines page | working |
 | Plots | 3D engine models (`aerosim.plots.engine_models`): liquid chambers (pyskyfire contour, isentropic gas fields, wall temperature), regressing solid grains, hybrid port and tank, ramjet / scramjet and gas-turbine cutaways | working |

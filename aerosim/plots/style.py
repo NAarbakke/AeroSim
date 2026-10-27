@@ -23,14 +23,51 @@ THEMES = {
         "muted": "#898781", "grid": "#e1e0d9", "axis": "#c3c2b7",
         "series": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300",
                    "#6250d6", "#e34948"],
+        "font": '"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif', "mono": "ui-monospace,Consolas,monospace",
     },
     "dark": {
         "surface": "#1a1a19", "page": "#0d0d0d", "ink": "#f0efec", "ink2": "#c3c2b7",
         "muted": "#898781", "grid": "#2c2c2a", "axis": "#383835",
         "series": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300",
                    "#9085e9", "#e66767"],
+        "font": '"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif', "mono": "ui-monospace,Consolas,monospace",
+    },
+    # pure black (Vercel-style carbon) with LaTeX typography (Latin Modern) and pgfplots-like
+    # charts: framed axes, inward ticks, no grid, thin lines told apart by dash as well as hue
+    "carbon": {
+        "surface": "#0a0a0a", "page": "#000000", "ink": "#ededed", "ink2": "#a1a1a1",
+        "muted": "#6e6e6e", "grid": "#1c1c1c", "axis": "#3d3d3d",
+        "series": ["#ededed", "#8ab4f8", "#f28b82", "#fdd663", "#81c995", "#c58af9",
+                   "#78d9ec", "#a1a1a1"],
+        "font": '"Latin Modern Roman","LM Roman 10","CMU Serif",Georgia,serif',
+        "mono": '"Latin Modern Mono","LM Mono 10",monospace',
+        "academic": True,
+    },
+    # white paper: the look of LaTeX publication figures (pgfplots / matplotlib-pgf at column
+    # width) - Computer Modern, black first series, grey dashed second, frame with inward ticks
+    # on all four sides, no grid, a frameless key inside the plot
+    "paper": {
+        "surface": "#ffffff", "page": "#ffffff", "ink": "#000000", "ink2": "#404040",
+        "muted": "#737373", "grid": "#e0e0e0", "axis": "#999999",
+        "series": ["#000000", "#737373", "#000000", "#a6a6a6", "#000000", "#737373",
+                   "#404040", "#a6a6a6"],
+        "font": '"Latin Modern Roman","LM Roman 10","CMU Serif","Computer Modern",serif',
+        "mono": '"Latin Modern Mono","LM Mono 10",monospace',
+        "academic": True, "key_inside": True, "weights": [1.4, 0.9],
     },
 }
+
+# themes the site's pages can switch between at run time (nav toggle)
+SITE_THEMES = ("dark", "carbon", "paper")
+
+# typefaces, chosen independently of the colour theme ("theme" keeps the theme's own): LaTeX's
+# Latin Modern, or B612 - the typeface Airbus drew for cockpit displays - for a technical look
+FONTS = {
+    "serif": {"label": "LaTeX serif", "font": THEMES["paper"]["font"], "mono": THEMES["paper"]["mono"]},
+    "technical": {"label": "Technical (B612)", "font": '"B612","Segoe UI",system-ui,sans-serif',
+                  "mono": '"B612",ui-monospace,Consolas,monospace'},   # + tabular figures
+}
+DARK_THEMES = ("dark", "carbon")
 
 _current = {"theme": "light"}
 
@@ -55,8 +92,34 @@ def _fonts() -> list[str]:
     return [f for f in pref if f in have] + ["DejaVu Sans"]
 
 
-def rc(theme: str = "light") -> dict:
+def rc(theme: str = "light", pgf: bool = False) -> dict:
+    """matplotlib rcParams for a theme. ``carbon`` gives LaTeX-style figures (Computer Modern
+    mathtext, framed axes, inward ticks on all sides, no grid); with ``pgf=True`` they are set
+    by LaTeX itself through the pgf backend (lualatex, Latin Modern), for .pgf / .pdf output."""
     t = THEMES[theme]
+    if t.get("academic"):
+        from cycler import cycler
+        r = {"figure.facecolor": t["page"], "axes.facecolor": t["page"], "savefig.facecolor": t["page"],
+             "figure.dpi": 110, "savefig.dpi": 200,
+             "font.family": "serif", "font.serif": ["Latin Modern Roman", "CMU Serif", "cmr10", "DejaVu Serif"],
+             "mathtext.fontset": "cm", "axes.formatter.use_mathtext": True,
+             "font.size": 10, "axes.titlesize": 10, "axes.titleweight": "normal",
+             "axes.labelcolor": t["ink"], "axes.labelsize": 10, "text.color": t["ink"],
+             "axes.edgecolor": t["ink"], "axes.linewidth": 0.6, "axes.grid": False,
+             "axes.spines.top": True, "axes.spines.right": True,
+             "xtick.direction": "in", "ytick.direction": "in", "xtick.top": True, "ytick.right": True,
+             "xtick.major.size": 3.5, "ytick.major.size": 3.5, "xtick.minor.visible": True,
+             "ytick.minor.visible": True, "xtick.minor.size": 2, "ytick.minor.size": 2,
+             "xtick.color": t["ink"], "ytick.color": t["ink"], "xtick.major.width": 0.6,
+             "ytick.major.width": 0.6, "lines.linewidth": 1.0, "legend.frameon": False,
+             "legend.loc": "upper right", "legend.handlelength": 1.8,
+             "legend.fontsize": 9, "legend.labelcolor": t["ink"],
+             "axes.prop_cycle": cycler(color=t["series"][:4],
+                                       linestyle=["-", "--", ":", "-."])}
+        if pgf:
+            r |= {"pgf.texsystem": "lualatex", "pgf.rcfonts": False, "text.usetex": True,
+                  "pgf.preamble": r"\usepackage{lmodern}\usepackage[T1]{fontenc}"}
+        return r
     return {
         "figure.facecolor": t["surface"], "axes.facecolor": t["surface"],
         "savefig.facecolor": t["surface"], "figure.dpi": 110, "savefig.dpi": 200,

@@ -35,7 +35,7 @@ border-left:1px solid var(--grid);padding:14px 18px 20px}
 #bar{grid-column:1;display:flex;align-items:center;gap:12px;padding:10px 20px;
 background:var(--surface);border-top:1px solid var(--grid);flex-wrap:wrap}
 #play{min-width:76px;font-weight:600}#scrub{flex:1;min-width:160px;accent-color:var(--accent)}
-#tclock{font:600 15px Consolas,monospace;font-variant-numeric:tabular-nums}
+#tclock{font:600 15px var(--mono);font-variant-numeric:tabular-nums}
 @media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:60vh auto auto}
 #side{grid-row:3;grid-column:1;border-left:0;border-top:1px solid var(--grid)}#bar{grid-row:2}}
 """

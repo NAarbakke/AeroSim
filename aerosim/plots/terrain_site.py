@@ -154,9 +154,10 @@ grid-template-rows:minmax(0,1fr) auto}
 text-shadow:0 1px 3px var(--page)}
 #hud h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
 #hud p{margin:2px 0 0;color:var(--ink2);font-size:13px}
-#clock{position:absolute;left:20px;bottom:30px;font:600 28px/1 Consolas,"SF Mono",monospace;
+:root:not([data-theme=dark]):not([data-theme=carbon]) #clock,:root:not([data-theme=dark]):not([data-theme=carbon]) #attr{color:#fff!important;text-shadow:0 1px 3px #000}
+#clock{position:absolute;left:20px;bottom:30px;font:600 28px/1 var(--mono);
 pointer-events:none;font-variant-numeric:tabular-nums;text-shadow:0 1px 3px var(--page)}
-#clock small{display:block;font:500 12px/1.6 "Segoe UI",system-ui,sans-serif;color:var(--ink2)}
+#clock small{display:block;font:500 12px/1.6 var(--font);color:var(--ink2)}
 #attr{position:absolute;left:20px;right:20px;bottom:8px;font-size:10.5px;color:var(--ink2);
 pointer-events:none;text-shadow:0 1px 2px var(--page);line-height:1.3}
 #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -187,6 +188,7 @@ import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 const D = JSON.parse(document.getElementById("data").textContent), TK = TKC;
 const M = D.models, tEnd = Math.max(...M.map(m => m.t[m.t.length - 1]));
+M.forEach((m, i) => { m.color = TK.series[i % TK.series.length]; });   // the run-time theme's palette
 const rad = Math.PI / 180, b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 
 // ---------- terrain mesh (scene: x = east m, y = up m, z = -north m) ----------
@@ -453,21 +455,23 @@ function timeChart(cv, key, t, extra) {
   if (extra != null) { ymin = Math.min(ymin, extra); ymax = Math.max(ymax, extra); }
   const [y0, y1, yst] = axisRange(ymin, ymax, 4, true), [, x1, xst] = axisRange(0, tEnd, 4, true);
   const L = 42, B = 18, Tp = 6, W = w - L - 10, Hh = h - B - Tp, X = x => L + x / x1 * W, Y = y => Tp + Hh - (y - y0) / (y1 - y0) * Hh;
-  c.strokeStyle = TK.grid; c.lineWidth = 1; c.fillStyle = TK.ink2;
-  for (let y = y0; y <= y1 + yst / 2; y += yst) { c.beginPath(); c.moveTo(L, Y(y)); c.lineTo(L + W, Y(y)); c.stroke();
+  c.fillStyle = tickInk();
+  for (let y = y0; y <= y1 + yst / 2; y += yst) { yTick(c, L, W, Y(y));
     c.textAlign = "right"; c.fillText(fmtN(y, yst), L - 6, Y(y) + 4); }
-  for (let x = 0; x <= x1 + xst / 2; x += xst) { c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center";
+  for (let x = 0; x <= x1 + xst / 2; x += xst) { xTick(c, Tp, Hh, X(x)); c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center";
     c.fillText(fmtN(x, xst) + (x + xst > x1 + xst / 2 ? " s" : ""), X(x), h - 3); }
   if (extra != null) { c.strokeStyle = TK.ink2; c.setLineDash([5, 4]); c.beginPath(); c.moveTo(L, Y(extra)); c.lineTo(L + W, Y(extra)); c.stroke(); c.setLineDash([]); }
-  for (const m of M) {
-    for (const [full, alpha] of [[true, 0.25], [false, 1]]) {
-      c.strokeStyle = m.color; c.globalAlpha = alpha; c.lineWidth = 2; c.lineJoin = "round"; c.beginPath();
+  M.forEach((m, mi) => { c.setLineDash(dashOf(mi));
+    for (const [full, alpha] of [[true, GHOST], [false, 1]]) {
+      c.strokeStyle = m.color; c.globalAlpha = alpha; c.lineWidth = lwOf(mi); c.lineJoin = "round"; c.beginPath();
       for (let i = 0; i < m.t.length; i++) { if (!full && m.t[i] > t) break;
         i ? c.lineTo(X(m.t[i]), Y(m.ch[key][i])) : c.moveTo(X(m.t[i]), Y(m.ch[key][i])); }
       c.stroke(); }
-    c.globalAlpha = 1; c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(m.s.ch[key]), 5, 0, 7);
-    c.fillStyle = m.color; c.fill(); c.lineWidth = 2; c.strokeStyle = TK.surface; c.stroke();
-  }
+    c.globalAlpha = 1; c.setLineDash([]); c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(m.s.ch[key]), ACAD ? 3 : 5, 0, 7);
+    c.fillStyle = m.color; c.fill(); c.lineWidth = ACAD ? 1 : 2; c.strokeStyle = TK.surface; c.stroke();
+  });
+  frameBox(c, L, Tp, W, Hh);
+  insideKey(cv, c, L, Tp, W, M.map((m, mi) => ({name: m.name, color: m.color, dash: dashOf(mi), lw: lwOf(mi)})));
 }
 // profile along the active route, flown part and current position on top
 const pcv = document.getElementById("prof");
@@ -476,10 +480,10 @@ function profile(t) {
   let ymax = 0; for (const v of P.ref) ymax = Math.max(ymax, v); for (const v of P.fz) ymax = Math.max(ymax, v);
   const [y0, y1, yst] = axisRange(0, ymax, 4, true), [, x1, xst] = axisRange(0, m.length, 4, true);
   const L = 42, B = 18, Tp = 6, W = w - L - 10, Hh = h - B - Tp, X = x => L + x / x1 * W, Y = y => Tp + Hh - (y - y0) / (y1 - y0) * Hh;
-  c.strokeStyle = TK.grid; c.lineWidth = 1; c.fillStyle = TK.ink2;
-  for (let y = y0; y <= y1 + yst / 2; y += yst) { c.beginPath(); c.moveTo(L, Y(y)); c.lineTo(L + W, Y(y)); c.stroke();
+  c.fillStyle = tickInk();
+  for (let y = y0; y <= y1 + yst / 2; y += yst) { yTick(c, L, W, Y(y));
     c.textAlign = "right"; c.fillText(fmtN(y, yst), L - 6, Y(y) + 4); }
-  for (let x = 0; x <= x1 + xst / 2; x += xst) { c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center";
+  for (let x = 0; x <= x1 + xst / 2; x += xst) { xTick(c, Tp, Hh, X(x)); c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center";
     c.fillText(fmtN(x, xst) + (x + xst > x1 + xst / 2 ? " km" : ""), X(x), h - 3); }
   c.fillStyle = TK.muted; c.globalAlpha = 0.45; c.beginPath(); c.moveTo(X(0), Y(0));
   for (let i = 0; i < P.s.length; i++) c.lineTo(X(P.s[i]), Y(Math.max(P.terrain[i], 0)));
@@ -491,6 +495,7 @@ function profile(t) {
   const s = m.s.ch.dist; c.globalAlpha = 0.3; ln(P.fs, P.fz, m.color, null, 2); c.globalAlpha = 1; ln(P.fs, P.fz, m.color, null, 2, s);
   c.beginPath(); c.arc(X(s), Y(m.s.ch.alt), 5, 0, 7); c.fillStyle = m.color; c.fill(); c.lineWidth = 2; c.strokeStyle = TK.surface; c.stroke();
   document.querySelector("#lg-prof .pl").style.background = m.color;
+  frameBox(c, L, Tp, W, Hh);
 }
 // minimap: shaded relief, routes, aircraft
 const mini = document.getElementById("mini"), mimg = new Image(); mimg.src = D.minimap;
@@ -587,7 +592,7 @@ def terrain_replay_html(grid, models: list[dict], *, title: str, subtitle: str =
     stats = [flight_stats(m) for m in models]
     rows = "".join(f"<tr><td>{html.escape(k)}</td>" + "".join(f"<td>{html.escape(s[k])}</td>" for s in stats)
                    + "</tr>" for k in stats[0])
-    head = "".join(f'<th><span class="sw" style="display:inline-block;background:{T["series"][i]}"></span> '
+    head = "".join(f'<th><span class="sw" style="display:inline-block;background:var(--s{i})"></span> '
                    f'{html.escape(m["name"])}</th>' for i, m in enumerate(models))
     page = f"""<div id="app">
  <div id="scene"><div id="labels"></div><div id="glegend" aria-label="Land cover legend"></div><div id="hud"><h1>{html.escape(title)}</h1><p>{html.escape(subtitle)}</p></div>

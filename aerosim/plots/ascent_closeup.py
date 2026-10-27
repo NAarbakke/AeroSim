@@ -175,14 +175,15 @@ font-size:12.5px;line-height:1.45;text-shadow:0 1px 2px #000}
 #toast{position:absolute;left:50%;top:22%;transform:translate(-50%,0);color:#fff;font-size:22px;
 font-weight:600;text-shadow:0 2px 8px #000;opacity:0;transition:opacity .4s;pointer-events:none;
 white-space:nowrap}
-#clock{position:absolute;left:20px;bottom:30px;color:#fff;font:600 28px/1 Consolas,"SF Mono",monospace;
+#clock{position:absolute;left:20px;bottom:30px;color:#fff;font:600 28px/1 var(--mono);
 pointer-events:none;text-shadow:0 1px 4px #000;font-variant-numeric:tabular-nums}
-#clock small{display:block;font:500 12px/1.6 "Segoe UI",system-ui,sans-serif;opacity:.85}
+#clock small{display:block;font:500 12px/1.6 var(--font);opacity:.85}
 #gauges{position:absolute;right:16px;top:16px;display:grid;grid-template-columns:repeat(2,auto);
 gap:2px 14px;color:#fff;text-shadow:0 1px 3px #000;font-variant-numeric:tabular-nums;
 pointer-events:none;text-align:right}
-#gauges div{font:600 18px/1.1 Consolas,"SF Mono",monospace}
-#gauges span{display:block;font:500 10.5px/1.3 "Segoe UI",system-ui,sans-serif;opacity:.8}
+#gauges div{font:600 18px/1.1 var(--mono)}
+#traj3d{height:300px;border:1px solid var(--grid);border-radius:6px;margin:4px 0 2px;cursor:grab}#traj3d canvas{display:block}
+#gauges span{display:block;font:500 10.5px/1.3 var(--font);opacity:.8}
 #side{grid-row:1/3;grid-column:2;overflow-y:auto;background:var(--surface);
 border-left:1px solid var(--grid);padding:16px 18px 20px}
 canvas.chart.t{height:150px}#column{width:100%;height:440px;display:block}
@@ -385,7 +386,7 @@ D.markers.forEach(Mk => { const m = new THREE.Mesh(new THREE.RingGeometry(300, 9
 function find(a, x) { let lo = 0, hi = a.length - 1; if (x <= a[0]) return 0; if (x >= a[hi]) return hi - 1;
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (a[mid] <= x) lo = mid; else hi = mid; } return lo; }
 function sample(t) {
-  const i = find(F.t, t), j = Math.min(i + 1, N - 1), f = j > i ? Math.min(Math.max((t - F.t[i]) / (F.t[j] - F.t[i]), 0), 1) : 0;
+  const i = find(F.t, t), j = Math.min(i + 1, N - 1), f = F.t[j] > F.t[i] ? Math.min(Math.max((t - F.t[i]) / (F.t[j] - F.t[i]), 0), 1) : 0;
   const s = {i}; for (const k in F) { const a = F[k]; if (!Array.isArray(a)) continue;
     const x = a[i], y = a[j]; s[k] = (x == null || y == null) ? (f < 0.5 ? x : y) : x + (y - x) * f; }
   return s;
@@ -399,6 +400,8 @@ const G = [["h", "altitude, km", v => (v / 1e3).toFixed(1)], ["v", "speed, m/s",
   ["mach", "Mach", v => v == null ? "–" : v.toFixed(2)], ["q", "dyn. pressure, kPa", v => (v / 1e3).toFixed(1)],
   ["thrust", "thrust, kN", v => (v / 1e3).toFixed(0)], ["drag", "drag, kN", v => (v / 1e3).toFixed(1)],
   ["acc", "acceleration, g", v => v.toFixed(2)], ["air_above", "air above, %", v => v >= 0.01 ? (v * 100).toFixed(1) : (v * 100).toPrecision(2)]];
+if (D.six) G.push(["alpha_total", "angle of attack, °", v => v == null ? "–" : v.toFixed(2)],
+                  ["gimbal_total", "gimbal, °", v => v == null ? "–" : v.toFixed(2)]);
 if (D.stability) G.push(["margin", "static margin, cal", v => v == null ? "–" : v.toFixed(2)],
                         ["t_double", "time to double, s", v => v == null ? "–" : v.toFixed(2)]);
 gauges.innerHTML = G.map(([k, l]) => `<div data-k="${k}">–<span>${l}</span></div>`).join("");
@@ -445,6 +448,15 @@ if (D.stability) CH.push(
   {id: "c-d", series: [["t_double", "time to double", 1]], unit: "s"},
   {id: "c-g", series: [["gimbal_per_aoa", "gimbal per degree of AoA", 1]], unit: "deg/deg"});
 else document.getElementById("stab").remove();
+if (D.six) {
+  CH.push({id: "c-a", series: [["alpha_total", "total", 1], ["alpha", "pitch plane", 1], ["beta", "yaw plane", 1]], unit: "deg"},
+          {id: "c-w", series: [["wind_speed", "wind speed", 1]], unit: "m/s"},
+          {id: "c-qa", series: [["q_alpha", "q·α", 1]], unit: "kPa·deg"},
+          {id: "c-gm", series: [["gimbal_total", "gimbal deflection", 1]], unit: "deg"});
+  if (F.pm) CH.push({id: "c-pm", series: [["pm", "phase margin", 1]], unit: "deg"},
+                    {id: "c-gk", series: [["gmu", "gain margin, upper", 1], ["gml", "gain margin, lower", 1]], unit: "dB"});
+  else document.getElementById("margins").remove();
+} else { document.getElementById("sixdof").remove(); document.getElementById("aoax").remove(); }
 CH.forEach(ch => legend(document.getElementById("lg-" + ch.id), ch.series.map(([k, n], i) => ({name: n, color: TK.series[i]}))));
 const tView = () => +document.getElementById("span").value;
 function chart(ch, t) {
@@ -455,15 +467,18 @@ function chart(ch, t) {
   if (ymax < 0) ymax = 0;
   const [y0, y1, yst] = axisRange(ymin, Math.max(ymax, 1e-9), 4, true), [, x1, xst] = axisRange(0, t1, 4, true);
   const L = 44, B = 18, T = 6, W = w - L - 10, H = h - B - T, X = x => L + x / x1 * W, Y = y => T + H - (y - y0) / (y1 - y0) * H;
-  c.strokeStyle = TK.grid; c.fillStyle = TK.ink2;
-  for (let y = y0; y <= y1 + yst / 2; y += yst) { c.beginPath(); c.moveTo(L, Y(y)); c.lineTo(L + W, Y(y)); c.stroke(); c.textAlign = "right"; c.fillText(fmtN(y, yst), L - 6, Y(y) + 4); }
-  for (let x = 0; x <= x1 + xst / 2; x += xst) { c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center"; c.fillText(fmtN(x, xst) + (x + xst > x1 + xst / 2 ? " s" : ""), X(x), h - 3); }
-  ch.series.forEach(([k, , s], n) => { const a = F[k];
-    for (const [full, alpha] of [[true, 0.25], [false, 1]]) { c.strokeStyle = TK.series[n]; c.globalAlpha = alpha; c.lineWidth = 2; c.beginPath(); let pen = false;
+  c.fillStyle = tickInk();
+  for (let y = y0; y <= y1 + yst / 2; y += yst) { yTick(c, L, W, Y(y)); c.textAlign = "right"; c.fillText(fmtN(y, yst), L - 6, Y(y) + 4); }
+  for (let x = 0; x <= x1 + xst / 2; x += xst) { xTick(c, T, H, X(x)); c.textAlign = x + xst > x1 + xst / 2 ? "right" : "center"; c.fillText(fmtN(x, xst) + (x + xst > x1 + xst / 2 ? " s" : ""), X(x), h - 3); }
+  ch.series.forEach(([k, , s], n) => { const a = F[k]; c.setLineDash(dashOf(n));
+    for (const [full, alpha] of [[true, GHOST], [false, 1]]) { c.strokeStyle = TK.series[n]; c.globalAlpha = alpha; c.lineWidth = lwOf(n); c.beginPath(); let pen = false;
       for (let i = 0; i < N && F.t[i] <= t1; i++) { if (!full && F.t[i] > t) break; const v = a[i]; if (v == null) { pen = false; continue; }
         pen ? c.lineTo(X(F.t[i]), Y(v * s)) : c.moveTo(X(F.t[i]), Y(v * s)); pen = true; } c.stroke(); }
-    c.globalAlpha = 1; });
-  c.strokeStyle = TK.axis; c.beginPath(); c.moveTo(X(Math.min(t, t1)), T); c.lineTo(X(Math.min(t, t1)), T + H); c.stroke();
+    c.globalAlpha = 1; c.setLineDash([]); });
+  frameBox(c, L, T, W, H);
+  insideKey(cv, c, L, T, W, ch.series.map(([, name], n) => ({name, color: TK.series[n], dash: dashOf(n), lw: lwOf(n)})));
+  c.strokeStyle = ACAD ? TK.ink2 : TK.axis; c.lineWidth = ACAD ? 0.75 : 1; c.setLineDash(ACAD ? [2, 2] : []);
+  c.beginPath(); c.moveTo(X(Math.min(t, t1)), T); c.lineTo(X(Math.min(t, t1)), T + H); c.stroke(); c.setLineDash([]);
 }
 
 // events list
@@ -507,13 +522,85 @@ function sepOffset(part, s, dt, dirSide) {
   return back;
 }
 
+const UP = new THREE.Vector3(0, 1, 0), aoaSel = document.getElementById("aoax");
+
+// ---------- 3-D trajectory with attitude glyphs (6-DOF) ----------
+const traj3d = D.six ? (() => {
+  const TJ = D.traj, n = TJ.t.length, box = document.getElementById("traj3d");
+  const r2 = new THREE.WebGLRenderer({antialias: true, alpha: true}); r2.setPixelRatio(Math.min(devicePixelRatio, 2)); box.append(r2.domElement);
+  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(32, 1, 0.1, 1e6), ctl = new OrbitControls(cam, r2.domElement);
+  ctl.enableDamping = true;
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x555555, 2.2)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(1, 2, 1.5); sc.add(sun);
+  const P = i => new THREE.Vector3(TJ.e[i], TJ.u[i], -TJ.n[i]), G = i => new THREE.Vector3(TJ.ge[i], TJ.gu[i], -TJ.gn[i]);
+  const V = (x, y, z) => new THREE.Vector3(x, z, -y);       // east, north, up -> scene
+  const col = c => new THREE.Color(c);
+  const lineOf = (pts, c, o, dashed) => { const g = new THREE.BufferGeometry().setFromPoints(pts);
+    const m = dashed ? new THREE.LineDashedMaterial({color: col(c), transparent: true, opacity: o, dashSize: 4, gapSize: 3})
+                     : new THREE.LineBasicMaterial({color: col(c), transparent: true, opacity: o});
+    const l = new THREE.Line(g, m); if (dashed) l.computeLineDistances(); sc.add(l); return l; };
+  const all = Array.from({length: n}, (_, i) => P(i));
+  const future = lineOf(all, TK.ink2, 0.35), flown = lineOf(all, TK.series[0], 1);
+  const ground = lineOf(Array.from({length: n}, (_, i) => G(i)), TK.ink2, 0.6, true);
+  let grid = null, glyphs = new THREE.Group(), drops = null; sc.add(glyphs);
+  const glyphGeo = (() => { const c = new THREE.CylinderGeometry(0.09, 0.09, 0.8, 12); c.translate(0, 0.4, 0);
+    const n2 = new THREE.ConeGeometry(0.09, 0.25, 12); n2.translate(0, 0.925, 0); return [c, n2]; })();
+  const glyph = (color, s) => { const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({color: col(color), roughness: 0.6});
+    glyphGeo.forEach(geo => g.add(new THREE.Mesh(geo, m))); g.scale.setScalar(s); return g; };
+  const shown = i => { const b = V(TJ.bx[i], TJ.by[i], TJ.bz[i]).normalize(), a = V(TJ.ax[i], TJ.ay[i], TJ.az[i]).normalize();
+    return F.alpha_total[i] == null ? b : a.clone().addScaledVector(b.clone().sub(a), +aoaSel.value).normalize(); };
+  const now = glyph(TK.series[0], 1), air = new THREE.ArrowHelper(UP, new THREE.Vector3(), 1, col(TK.series[2]).getHex());
+  sc.add(now, air);
+  let size = 1, iEnd = n - 1;
+  function build() {
+    const span = Math.min(tView(), TJ.t[n - 1]); iEnd = 0; while (iEnd < n - 1 && TJ.t[iEnd + 1] <= span) iEnd++;
+    const bb = new THREE.Box3(); for (let i = 0; i <= iEnd; i++) { bb.expandByPoint(all[i]); bb.expandByPoint(G(i)); }
+    const ext = bb.getSize(new THREE.Vector3()), R0 = Math.max(ext.x, ext.y, ext.z, 1); size = R0 * 0.06;
+    if (grid) sc.remove(grid);
+    const step = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].find(x => R0 / x <= 12) || 2000, half = Math.ceil(R0 / step) * step;
+    grid = new THREE.GridHelper(2 * half, 2 * half / step, col(TK.grid), col(TK.grid)); sc.add(grid);
+    document.getElementById("traj-note").firstChild.nodeValue = `Earth-fixed, from the launch site (grid ${step} km); the dashed line is the ground track on the curved Earth. Glyphs show the body axis every few seconds; drag to turn, scroll to zoom. `;
+    glyphs.clear(); if (drops) sc.remove(drops);
+    const every = [1, 2, 5, 10, 20, 30, 60].find(x => span / x <= 22) || 120, dp = [];
+    for (let i = 0, tn = 0; i <= iEnd; i++) if (TJ.t[i] >= tn) { tn = TJ.t[i] + every;
+      const g = glyph(TK.ink2, size); g.position.copy(all[i]); g.quaternion.setFromUnitVectors(UP, shown(i)); g.userData.i = i; glyphs.add(g);
+      dp.push(all[i], G(i)); }
+    drops = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(dp), new THREE.LineBasicMaterial({color: col(TK.grid), transparent: true, opacity: 0.8})); sc.add(drops);
+    now.scale.setScalar(size * 1.8);
+    future.geometry.setDrawRange(0, iEnd + 1); ground.geometry.setDrawRange(0, iEnd + 1);
+    const c = bb.getCenter(new THREE.Vector3()); ctl.target.copy(c);
+    // broadside to the flight: the camera looks across the downrange direction, a little from above and behind
+    const dr = all[iEnd].clone().sub(all[0]); dr.y = 0; if (dr.lengthSq() < 1e-9) dr.set(1, 0, 0); dr.normalize();
+    const side = new THREE.Vector3().crossVectors(UP, dr);
+    cam.position.copy(c).addScaledVector(side, -R0 * 1.55).addScaledVector(UP, R0 * 0.12).addScaledVector(dr, -R0 * 0.35);
+    cam.far = R0 * 50; cam.updateProjectionMatrix();
+  }
+  function resize2() { const w = box.clientWidth, h = box.clientHeight; r2.setSize(w, h, false); r2.domElement.style.width = w + "px"; r2.domElement.style.height = h + "px"; cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  document.getElementById("span").addEventListener("change", build);
+  aoaSel.addEventListener("change", () => glyphs.children.forEach(g => g.quaternion.setFromUnitVectors(UP, shown(g.userData.i))));
+  addEventListener("resize", resize2); resize2(); build();
+  legend(document.getElementById("lg-traj"), [{name: "flown", color: TK.series[0]}, {name: "airflow", color: TK.series[2]}, {name: "ground track", color: TK.ink2}]);
+  return {update(t) {
+    const i = Math.min(find(TJ.t, t), n - 1), j = Math.min(i + 1, n - 1), f = TJ.t[j] > TJ.t[i] ? Math.min(Math.max((t - TJ.t[i]) / (TJ.t[j] - TJ.t[i]), 0), 1) : 0;
+    flown.geometry.setDrawRange(0, Math.min(i + 2, iEnd + 1));
+    const p = all[i].clone().lerp(all[j], f); now.position.copy(p); now.quaternion.setFromUnitVectors(UP, shown(f < 0.5 ? i : j));
+    const a = V(TJ.ax[i], TJ.ay[i], TJ.az[i]).normalize(); air.position.copy(p); air.setDirection(a); air.setLength(size * 4, size * 0.9, size * 0.5);
+    now.visible = air.visible = t <= TJ.t[iEnd] + 1e-6;
+    ctl.update(); r2.render(sc, cam);
+  }};
+})() : null;
+
 function frame(now) {
   const dtw = Math.min((now - last) / 1000, 0.25); last = now;
   if (playing) { t = Math.min(t + dtw * rate.value, tEnd); if (t >= tEnd) { playing = false; play.textContent = "Play"; } scrub.value = t / tEnd * 1000; }
   const s = sample(t), h = s.h, hk = h / 1e3;
-  // attitude: body axis along the flight path (vertical rise, then the gravity turn)
+  // attitude: 6-DOF body axis (angle to the airflow scaled by the AoA control), or along the flight path
   const pitch = Math.max(Math.min(s.fpa, 90), -10) * rad;
-  rocket.rotation.set(0, 0, -(Math.PI / 2 - pitch));
+  const dir = new THREE.Vector3(Math.cos(pitch), Math.sin(pitch), 0);      // airflow past the rocket
+  if (D.six && s.bx != null) {
+    const body = new THREE.Vector3(s.bx, s.by, s.bz).normalize(); dir.set(s.ax, s.ay, s.az).normalize();
+    const k = +aoaSel.value, show = dir.clone().addScaledVector(body.clone().sub(dir), k).normalize();
+    rocket.quaternion.setFromUnitVectors(UP, s.alpha_total == null ? body : show);
+  } else rocket.rotation.set(0, 0, -(Math.PI / 2 - pitch));
   const want = t < tSep1 ? L_TOT / 2 : t < tSep2 ? (yS2 + M.inter + L_TOT) / 2 : yS2 + M.inter + M.s2 + M.trans + (t < tFair ? M.fairing : M.breeze + 3) / 2;
   centre += (want - centre) * Math.min(1, dtw * 1.5); stack.position.y = -centre;
   // staging
@@ -536,21 +623,23 @@ function frame(now) {
   const dens = Math.pow(Math.max(s.rho, 1e-9) / 1.225, 0.33), vrel = s.v;
   streaks.material.opacity = Math.min(0.5 * dens, 0.5) * Math.min(1, s.v / 250);   // seen once it moves fast
   windPhase += dtw * rate.value * vrel;
-  const dir = new THREE.Vector3(Math.cos(pitch), Math.sin(pitch), 0), len = Math.min(0.02 * vrel + 0.5, 9), box = 60;
-  const mid = tmp.set(0, 0, 0), e1x = -dir.y, e1y = dir.x;   // e1 across the flow, e2 = z
+  const len = Math.min(0.02 * vrel + 0.5, 9), box = 60;
+  const e1 = new THREE.Vector3(-dir.y, dir.x, 0); if (e1.lengthSq() < 1e-6) e1.set(1, 0, 0); e1.normalize();
+  const e2 = new THREE.Vector3().crossVectors(dir, e1);      // e1, e2 across the flow
   for (let i = 0; i < NS; i++) { const [a, b, cc] = seeds[i];
     const along = ((a * box - windPhase) % (2 * box) + 3 * box) % (2 * box) - box;   // air moves past, wraps around
-    const px = mid.x + dir.x * along + e1x * b * 25, py = mid.y + dir.y * along + e1y * b * 25, pz = cc * 25;
-    streakPos.set([px, py, pz, px + dir.x * len, py + dir.y * len, pz], 6 * i); }
+    const px = dir.x * along + (e1.x * b + e2.x * cc) * 25, py = dir.y * along + (e1.y * b + e2.y * cc) * 25,
+      pz = dir.z * along + (e1.z * b + e2.z * cc) * 25;
+    streakPos.set([px, py, pz, px + dir.x * len, py + dir.y * len, pz + dir.z * len], 6 * i); }
   streakGeo.attributes.position.needsUpdate = true;
-  const nose = new THREE.Vector3(0, L_TOT - centre, 0).applyEuler(rocket.rotation);
+  const nose = new THREE.Vector3(0, L_TOT - centre, 0).applyQuaternion(rocket.quaternion);
   const qn = Math.min(s.q / 30000, 1), mach = s.mach ?? 0;
   if (mach > 1.05 && qn > 0.01) { const mu = Math.asin(1 / mach), Lc = 45, rc = Lc * Math.tan(mu);
     shock.visible = true; shock.scale.set(rc, Lc, rc); shock.position.copy(nose).addScaledVector(dir, -Lc / 2);
     shock.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); shock.material.opacity = 0.09 * qn; } else shock.visible = false;
   const vap = Math.max(0, 1 - Math.abs(mach - 1) / 0.12) * Math.min(1, s.rho / 0.5);
   vapour.visible = vap > 0.01; vapour.material.opacity = 0.45 * vap;
-  vapour.position.copy(new THREE.Vector3(0, yS2 + M.inter + M.s2 + M.trans + 0.5 - centre, 0).applyEuler(rocket.rotation)); vapour.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  vapour.position.copy(new THREE.Vector3(0, yS2 + M.inter + M.s2 + M.trans + 0.5 - centre, 0).applyQuaternion(rocket.quaternion)); vapour.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
   if (D.stability) {
     cgMark.visible = s.x_cg != null; if (s.x_cg != null) cgMark.position.set(0, L_TOT - s.x_cg, R + 0.4);
     cpMark.visible = s.x_cp != null; if (s.x_cp != null) cpMark.position.set(0, L_TOT - s.x_cp, R + 0.4);
@@ -573,11 +662,63 @@ function frame(now) {
   evItems.forEach(([te, li2]) => li2.classList.toggle("done", te <= t));
   clock.firstChild.nodeValue = `T+${fmtT(t)}`; clock.lastChild.textContent = `×${rate.value}`;
   controls.update(); renderer.render(scene, camera);
-  column(h); CH.forEach(ch => chart(ch, t));
+  column(h); CH.forEach(ch => chart(ch, t)); if (traj3d) traj3d.update(t);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 """
+
+
+
+def _attitude_frames(res, idx) -> tuple[dict, dict]:
+    """6-DOF orientation for the page. Scene frame of the close-up (per sample): x along the
+    horizontal ground track, y up, z = x cross y; returns the body axis (b*) and the airflow
+    direction (a*) there. Site frame for the 3-D trajectory panel: east, north, up of the
+    launch site, Earth-fixed, km; with the body axis, the airflow direction and the ground
+    point under the vehicle."""
+    from aerosim.flight import orbits
+    from aerosim.flight.orbits import OMEGA, OMEGA_VEC
+    r, v, b, va = res.position[idx], res.velocity[idx], res.body_axis[idx], res.air_velocity[idx]
+    t = res.time[idx]
+    up = r / np.linalg.norm(r, axis=1)[:, None]
+    vnav = v - np.cross(OMEGA_VEC, r)
+    along = vnav - np.sum(vnav * up, axis=1)[:, None] * up
+    w0 = res.attitude[0]                               # body z on the pad: the launch heading
+    q0, q1, q2, q3 = w0
+    z0 = np.array([2 * (q1 * q3 + q0 * q2), 2 * (q2 * q3 - q0 * q1), 1 - 2 * (q1 * q1 + q2 * q2)])
+    for i in range(len(t)):
+        if np.linalg.norm(along[i]) < 5.0:
+            along[i] = z0 - np.dot(z0, up[i]) * up[i]
+    along /= np.linalg.norm(along, axis=1)[:, None]
+    zs = np.cross(along, up)
+    an = va / np.maximum(np.linalg.norm(va, axis=1), 1e-9)[:, None]
+    f = {}
+    for key, vec in (("b", b), ("a", an)):
+        f[key + "x"], f[key + "y"], f[key + "z"] = (np.sum(vec * e, axis=1) for e in (along, up, zs))
+    # Earth-fixed launch-site frame
+    th = OMEGA * t
+    c, s_ = np.cos(th), np.sin(th)
+    ecef = lambda X: np.column_stack([c * X[:, 0] + s_ * X[:, 1], -s_ * X[:, 0] + c * X[:, 1], X[:, 2]])
+    pe, be, ae = ecef(r), ecef(b), ecef(an)
+    p0 = pe[0] * (1 - res.altitude[idx][0] / np.linalg.norm(pe[0]))
+    E, N, U = orbits.enu(p0)
+    loc = lambda X: (X @ E, X @ N, X @ U)
+    ground = pe * (1 - res.altitude[idx] / np.linalg.norm(pe, axis=1))[:, None]
+    tr = {"t": t}
+    tr["e"], tr["n"], tr["u"] = (x / 1e3 for x in loc(pe - p0))
+    tr["ge"], tr["gn"], tr["gu"] = (x / 1e3 for x in loc(ground - p0))
+    tr["bx"], tr["by"], tr["bz"] = loc(be)
+    tr["ax"], tr["ay"], tr["az"] = loc(ae)
+    return f, tr
+
+
+def _sixdof_note(res) -> str:
+    k = int(np.nanargmax(np.where(np.isfinite(res.q_alpha), res.q_alpha, -1)))
+    s1 = res.time <= res.events.get("max_q", 0) + 60
+    return (f"Largest load: q\u00b7\u03b1 {res.q_alpha[k] / 1e3:.0f} kPa\u00b7deg at {res.time[k]:.0f} s "
+            f"({res.alpha_total[k]:.1f}\u00b0 in {res.wind_speed[k]:.0f} m/s of wind at "
+            f"{res.altitude[k] / 1e3:.1f} km), gimbal {np.nanmax(res.gimbal_total[s1]):.1f}\u00b0 at most "
+            f"through max-Q.")
 
 
 def ascent_closeup_html(res, vehicle, *, title: str, subtitle: str = "", nav: str = "",
@@ -603,6 +744,36 @@ def ascent_closeup_html(res, vehicle, *, title: str, subtitle: str = "", nav: st
         for k, nd in (("x_cg", 2), ("x_cp", 2), ("margin", 2), ("t_double", 3), ("gimbal_per_aoa", 3)):
             a = np.asarray(stab[k], float)[idx]
             f[k] = [round(float(x), nd) if np.isfinite(x) else None for x in a]
+    six = getattr(res, "attitude", None) is not None
+    traj, margin_note, six_note = None, "", ""
+    if six:
+        n6 = int(np.searchsorted(res.time, d["t"][-1], side="right"))
+        sel = np.asarray(idx)[np.asarray(idx) < n6]
+        fr, tr = _attitude_frames(res, sel)
+        for k, a in fr.items():
+            f[k] = _r(a, 4)
+        for k, sc, nd in (("alpha_total", 1, 2), ("alpha", 1, 2), ("beta", 1, 2), ("gimbal_total", 1, 2),
+                          ("q_alpha", 1e-3, 1), ("wind_speed", 1, 1)):
+            a = np.asarray(getattr(res, k), float)[sel] * sc
+            f[k] = [round(float(x), nd) if np.isfinite(x) else None for x in a]
+        traj = {k: _r(np.asarray(a, float), 4 if k[0] in "ba" else 3) for k, a in tr.items()}
+        six_note = _sixdof_note(res)
+        if layout is not None:
+            from aerosim.flight.rocket.ascent6dof import autopilot_margins
+            mg = autopilot_margins(res, vehicle, layout, t_end=d["t"][-1])
+            tt = np.asarray(f["t"], float)
+            for k, src in (("pm", "pm"), ("gmu", "gm_upper"), ("gml", "gm_lower")):
+                ok = np.isfinite(mg[src])
+                a = np.interp(tt, mg["t"][ok], mg[src][ok]) if ok.sum() > 1 else np.full(tt.size, np.nan)
+                gap = np.ones(tt.size, bool)                  # only while an engine steers
+                for t0 in mg["t"][ok]:
+                    gap &= np.abs(tt - t0) > 2.5
+                a[gap] = np.nan
+                f[k] = [round(float(x), 1) if np.isfinite(x) else None for x in np.abs(a)]
+            i_q = int(np.argmin(np.abs(mg["t"] - res.events.get("max_q", 0))))
+            margin_note = (f"At max-Q: phase margin {mg['pm'][i_q]:.0f}\u00b0, gain margins "
+                           f"+{mg['gm_upper'][i_q]:.0f} / {mg['gm_lower'][i_q]:.0f} dB; the closed loop is "
+                           f"stable at {mg['stable'].mean() * 100:.0f} % of the {mg['t'].size} points checked.")
     ev = _events(res, d)
     names = {e[0]: e[1] for e in ev}
     stages = [s.name for s in vehicle.stages]
@@ -613,7 +784,8 @@ def ascent_closeup_html(res, vehicle, *, title: str, subtitle: str = "", nav: st
             "layers": [{"name": n, "base": b, "top": tp, "color": c, "text": tx} for n, b, tp, c, tx in LAYERS],
             "markers": [{"name": n, "alt": a} for n, a in MARKERS], "profile": _temperature_profile(),
             "hmax": float(max(700e3, d["h"].max() * 1.1)), "heatmax": float(max(d["heat"].max(), 1.0)),
-            "rates": list(rates), "rate": rate, "stability": stab is not None}
+            "rates": list(rates), "rate": rate, "stability": stab is not None, "six": six,
+            "traj": traj}
     loss = {k: float(v[-1]) for k, v in d["losses"].items()}
     k_mq = int(np.argmax(d["q"]))
     stab_note = ""
@@ -658,6 +830,31 @@ def ascent_closeup_html(res, vehicle, *, title: str, subtitle: str = "", nav: st
   <h3>Steering needed</h3><div class="legend" id="lg-c-g"></div><canvas class="chart t" id="c-g"></canvas>
   <p class="note">Engine deflection that holds 1&deg; of angle of attack (moment balance). {html.escape(stab_note)}</p>
   </div>
+  <div id="sixdof">
+  <h3>Trajectory and attitude</h3><div class="legend" id="lg-traj"></div>
+  <div id="traj3d" aria-label="3-D trajectory from the launch site with the vehicle's attitude along it"></div>
+  <p class="note" id="traj-note">Earth-fixed, from the launch site; the dashed line is the ground track on the
+  curved Earth. Glyphs show the body axis every few seconds; drag to turn, scroll to zoom.</p>
+  <h3>Angle of attack (6-DOF)</h3><div class="legend" id="lg-c-a"></div><canvas class="chart t" id="c-a"></canvas>
+  <p class="note">The angle between the body axis and the airflow, from the six-degree-of-freedom flight: the
+  pitch kick, the tracking of the gravity turn, and the wind. After stage 1 separation the upper stage yaws
+  to take out the sideways velocity the wind drift left, briefly flying sideways through the thin air.
+  Blank where q &lt; 200 Pa. {html.escape(six_note)}</p>
+  <h3>Wind</h3><div class="legend" id="lg-c-w"></div><canvas class="chart t" id="c-w"></canvas>
+  <h3>Aerodynamic load q&middot;&alpha;</h3><div class="legend" id="lg-c-qa"></div><canvas class="chart t" id="c-qa"></canvas>
+  <p class="note">Dynamic pressure times angle of attack: the index launch vehicles are designed to (bending
+  load on the structure).</p>
+  <h3>Engine gimbal</h3><div class="legend" id="lg-c-gm"></div><canvas class="chart t" id="c-gm"></canvas>
+  <p class="note">Nozzle deflection the autopilot commands to hold the attitude against the aerodynamic moment
+  (limit 7&deg;, 20&deg;/s).</p>
+  <div id="margins">
+  <h3>Autopilot stability margins</h3><div class="legend" id="lg-c-pm"></div><canvas class="chart t" id="c-pm"></canvas>
+  <div class="legend" id="lg-c-gk"></div><canvas class="chart t" id="c-gk"></canvas>
+  <p class="note">python-control on the linearised pitch loop (airframe, actuator, autopilot, 30 ms of
+  sensing and computing delay), every 2 s. Gain margins: how much the loop gain may rise or fall before
+  the vehicle goes unstable. {html.escape(margin_note)}</p>
+  </div>
+  </div>
   <h3>Events</h3><ul id="events" class="ev"></ul>
   <p class="note">Rockot / Breeze-KM model drawn from published dimensions (29.15 m, 2.5 m stages,
   2.62 m fairing); colours and details approximate. Flight: the first-principles model on the
@@ -668,6 +865,7 @@ def ascent_closeup_html(res, vehicle, *, title: str, subtitle: str = "", nav: st
   <input id="scrub" type="range" min="0" max="1000" value="0" aria-label="Flight time">
   <select id="cam" aria-label="Camera"><option value="close">Close (orbiting)</option><option value="side">Side</option>
    <option value="below">From below</option><option value="nose">Nose</option><option value="wide">Wide</option></select>
+  <select id="aoax" aria-label="Angle of attack display"><option value="1">AoA: true</option><option value="5">AoA ×5</option><option value="20">AoA ×20</option></select>
   <select id="span" aria-label="Chart time span"><option value="320">Charts: first 320 s</option><option value="{d['t'][-1]:.0f}">Charts: whole replay</option></select>
  </div>
 </div>

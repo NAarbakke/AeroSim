@@ -85,6 +85,28 @@ def barrowman(layout: Layout, with_shoulders: bool = True) -> list[tuple[float, 
     return comps
 
 
+def mass_properties(layout: Layout, left: dict[str, float], full: dict[str, float],
+                    present) -> tuple[float, float, float]:
+    """(mass, x_cg, pitch inertia about the CG) with ``left[stage]`` kg of propellant out of
+    ``full[stage]`` and the parts for which ``present(part)`` is true."""
+    items = []                                                 # (mass, centroid, length)
+    for p in layout.parts:
+        if present(p):
+            items.append((p.mass, 0.5 * (p.x0 + p.x1), p.x1 - p.x0))
+    for tk in layout.tanks:
+        mt = max(left.get(tk.stage, 0.0), 0.0) * tk.share
+        if mt <= 0:
+            continue
+        L = tk.x_bottom - tk.x_top
+        f = mt / (full[tk.stage] * tk.share)
+        items.append((mt, tk.x_bottom - 0.5 * f * L, f * L))
+    m = sum(a for a, _, _ in items)
+    xcg = sum(a * x for a, x, _ in items) / m
+    r2 = (layout.diameter / 2) ** 2
+    inertia = sum(a * (ln * ln / 12 + (x - xcg) ** 2 + r2 / 4) for a, x, ln in items)
+    return m, xcg, inertia
+
+
 def _stage_of_phase(vehicle, name: str):
     for st in vehicle.stages:
         if name == st.name or name.startswith(st.name + " burn"):
@@ -114,8 +136,8 @@ def stability(res, vehicle, layout: Layout, t_end: float | None = None,
         if st is not None:
             burned[st.name][i] += st.mass_flow * (t[i] - t[i - 1])
     ev = res.events
-    r2 = (layout.diameter / 2) ** 2
     mres = res.mass[keep]
+    full = {k: s.propellant_mass for k, s in stages.items()}
 
     def present(event, mass, i):
         """Before the event; at the event sample itself, whichever side the simulator recorded
@@ -131,21 +153,9 @@ def stability(res, vehicle, layout: Layout, t_end: float | None = None,
                                            "m_alpha", "m_q", "t_double", "omega", "zeta",
                                            "gimbal_per_aoa", "q")}
     for i in range(n):
-        items = []                                             # (mass, centroid, length)
-        for p in layout.parts:
-            if present(p.until, p.mass, i):
-                items.append((p.mass, 0.5 * (p.x0 + p.x1), p.x1 - p.x0))
-        for tk in layout.tanks:
-            st = stages[tk.stage]
-            left = max(st.propellant_mass - burned[tk.stage][i], 0.0) * tk.share
-            if left <= 0:
-                continue
-            L = tk.x_bottom - tk.x_top
-            f = left / (st.propellant_mass * tk.share)
-            items.append((left, tk.x_bottom - 0.5 * f * L, f * L))
-        m = sum(a for a, _, _ in items)
-        xcg = sum(a * x for a, x, _ in items) / m
-        inertia = sum(a * (ln * ln / 12 + (x - xcg) ** 2 + r2 / 4) for a, x, ln in items)
+        left = {k: full[k] - burned[k][i] for k in stages}
+        m, xcg, inertia = mass_properties(layout, left, full,
+                                          lambda p, i=i: present(p.until, p.mass, i))
         out["mass"][i], out["x_cg"][i], out["inertia"][i] = m, xcg, inertia
         h = res.altitude[keep][i]
         v = res.speed[keep][i]
