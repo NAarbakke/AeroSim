@@ -1,0 +1,11 @@
+# Strela reference injection, UM Fig. 3.4: 700 kg SC from Svobodny to 1000 km circular, i = 90 deg.
+# v = relative velocity, fpa = trajectory angle theta, q = dynamic pressure, range = distance from launch site.
+# Stage 1 and stage 2 impact ranges: 1300 km and 1600 km (same figure).
+# max_q altitude is printed as 48.5 km but q and V imply ~10 km (ISA); see README.md.
+event,t_s,v_m_s,h_km,fpa_deg,q_kg_m2,range_km
+max_q,51,566,48.5,49,6706,5
+stage1_2_separation,126.1,3555,70,20,52,120
+fairing_jettison,164.25,3992,114,15,0,254
+stage2_mis_separation,309.1,7727,240,7,,1056
+apogee_mis_ignition,1575,6894,1000,0,,10174
+sc_separation,1760,7371,1000,0,,11229

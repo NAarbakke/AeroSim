@@ -16,5 +16,5 @@ node_modules/
 docs/briefings/**/build/package-lock.json
 !docs/briefings/*/build/
 
-# copyrighted reference kept locally only (see docs/references/rockot/README.md)
-docs/references/rockot/*.pdf
+# copyrighted/proprietary reference manuals kept locally only (see each docs/references/<vehicle>/README.md)
+docs/references/*/*.pdf

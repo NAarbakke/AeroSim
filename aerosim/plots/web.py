@@ -13,20 +13,20 @@ import json
 import math
 
 from aerosim.plots.replay import _importmap
-from aerosim.plots.style import DARK_THEMES, FONTS, SITE_THEMES, THEMES
+from aerosim.plots.style import DARK_THEMES, FONTS, SITE_THEMES, THEMES, default_font
 
 CSS = r"""
 *{box-sizing:border-box}html,body{margin:0;background:var(--page);color:var(--ink);
 font:14px/1.45 var(--font)}
-:root[data-theme=carbon] body,:root[data-theme=paper] body{font-size:15px;font-variant-numeric:lining-nums}
+:root[data-font=serif] body{font-size:15px;font-variant-numeric:lining-nums}
 :root[data-theme=carbon] h3,:root[data-theme=paper] h3{font-weight:700;letter-spacing:.01em}
 :root[data-theme=carbon] .card,:root[data-theme=carbon] button,:root[data-theme=carbon] select{border-radius:2px}
 :root[data-theme=paper] .card,:root[data-theme=paper] .panel,:root[data-theme=paper] .tile,
 :root[data-theme=paper] button,:root[data-theme=paper] select{border-radius:0}
 :root[data-theme=paper] nav.top{border-bottom-color:#000}
 :root[data-theme=paper] nav.top a[aria-current]{border-color:#000}
-nav.top select.theme{margin-left:auto;padding:2px 8px;font-size:12px}
-nav.top select.font{padding:2px 8px;font-size:12px}
+nav.top .switch{margin-left:auto;display:flex;gap:8px;white-space:nowrap}
+nav.top select{padding:2px 8px;font-size:12px}
 a{color:var(--ink)}
 nav.top{display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;padding:10px 20px;
 background:var(--surface);border-bottom:1px solid var(--grid);font-size:13px}
@@ -237,17 +237,20 @@ def theme_head(default: str = "dark") -> str:
     css = f":root{{{block(default)}}}" + "".join(f":root[data-theme={n}]{{{block(n)}}}" for n in names)
     # the typeface choice comes after the themes so it overrides their --font / --mono
     css += "".join(f":root[data-font={k}]{{--font:{v['font']};--mono:{v['mono']}}}" for k, v in FONTS.items())
+    # B612 runs wide: a tighter nav keeps it on one line as far down as the other faces
     css += (":root[data-font=technical] body{font-size:13.5px;letter-spacing:.005em}"
+            ":root[data-font=technical] nav.top{font-size:12px;letter-spacing:0;column-gap:15px}"
+            ":root[data-font=technical] nav.top select{font-size:11.5px}"
             ":root[data-font=technical] #clock,:root[data-font=technical] #gauges div,"
             ":root[data-font=technical] #tclock,:root[data-font=technical] .tm div"
             "{font-variant-numeric:tabular-nums;letter-spacing:0}")
-    themes = json.dumps({n: _flat(n) for n in names}, separators=(",", ":"))
+    themes = json.dumps({n: {**_flat(n), "font_key": default_font(n)} for n in names}, separators=(",", ":"))
     fonts = json.dumps({k: {"font": v["font"], "mono": v["mono"]} for k, v in FONTS.items()},
                        separators=(",", ":"))
-    js = (f"(function(){{var T={themes},F={fonts},d={json.dumps(default)},t=d,f='theme';"
+    js = (f"(function(){{var T={themes},F={fonts},d={json.dumps(default)},t=d,f='';"
           "try{t=localStorage.getItem('aerosim-theme')||d;f=localStorage.getItem('aerosim-font')||f}catch(e){}"
-          "if(!T[t])t=d;var th=Object.assign({},T[t]);"
-          "if(F[f]){th.font=F[f].font;th.mono=F[f].mono;document.documentElement.setAttribute('data-font',f)}"
+          "if(!T[t])t=d;var th=Object.assign({},T[t]);if(!F[f])f=th.font_key;"
+          "th.font=F[f].font;th.mono=F[f].mono;document.documentElement.setAttribute('data-font',f);"
           "document.documentElement.setAttribute('data-theme',t);window.AEROSIM_THEME=th;})();")
     return f'<style id="aerosim-themes">{_font_faces()}{css}</style><script>{js}</script>'
 
@@ -271,16 +274,16 @@ def nav(pages: list[tuple[str, str]], current: str) -> str:
     links = "".join(f'<a href="{h}"{" aria-current=page" if h == current else ""}>{html.escape(n)}</a>'
                     for n, h in pages)
     opts = "".join(f'<option value="{n}">{n.capitalize()}</option>' for n in SITE_THEMES)
-    switch = ('<select class="theme" aria-label="Theme" onchange="try{localStorage.setItem(\'aerosim-theme\','
+    switch = ('<span class="switch"><select class="theme" aria-label="Theme" onchange="try{localStorage.setItem(\'aerosim-theme\','
               f'this.value)}}catch(e){{}}location.reload()">{opts}</select>'
               '<script>document.currentScript.previousElementSibling.value='
               'document.documentElement.getAttribute("data-theme")||"dark"</script>')
-    fopts = '<option value="theme">Theme type</option>' + "".join(
+    fopts = "".join(
         f'<option value="{k}">{html.escape(v["label"])}</option>' for k, v in FONTS.items())
     switch += ('<select class="font" aria-label="Typeface" onchange="try{localStorage.setItem(\'aerosim-font\','
                f'this.value)}}catch(e){{}}location.reload()">{fopts}</select>'
                '<script>document.currentScript.previousElementSibling.value='
-               'document.documentElement.getAttribute("data-font")||"theme"</script>')
+               'document.documentElement.getAttribute("data-font")</script></span>')
     return f'<nav class="top"><b>AeroSim</b>{links}{switch}</nav>'
 
 

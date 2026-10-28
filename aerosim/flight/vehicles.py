@@ -57,7 +57,8 @@ class AircraftVehicle:
 class Stage:
     """One propulsive stage. Thrust at altitude: F = F_vac - p_amb * A_exit, with
     A_exit implied by the sea-level Isp (``isp_sl``; None = vacuum-only engine).
-    Mass flow is constant at propellant_mass / burn_time (full-thrust equivalent)."""
+    Mass flow is constant at propellant_mass / burn_time (full-thrust equivalent).
+    ``coast``: s of unpowered flight after cutoff before the stage separates (lower stages)."""
 
     name: str
     propellant_mass: float          # kg, usable
@@ -66,6 +67,7 @@ class Stage:
     burn_time: float                # s, at full thrust
     isp_sl: float | None = None     # s
     max_burns: int = 1              # restartable upper stages > 1
+    coast: float = 0.0              # s, cutoff to separation
 
     @property
     def mass_flow(self) -> float:
@@ -87,7 +89,7 @@ class Stage:
     @classmethod
     def from_engines(cls, name: str, engines: list[dict], dry_mass: float,
                      burn_time: float | None = None, propellant_mass: float | None = None,
-                     max_burns: int = 1, **_) -> Stage:
+                     max_burns: int = 1, coast: float = 0.0, **_) -> Stage:
         """Stage from engine design points (``aerosim.propulsion.liquid.design.engine_point``
         dicts, or the keyword dicts that produce them). Isp is the mass-flow-weighted mix;
         give ``burn_time`` to size the propellant (mdot x t) or ``propellant_mass`` to get the
@@ -105,7 +107,7 @@ class Stage:
             burn_time = propellant_mass / mdot
         isp = F / (mdot * 9.80665)
         st = cls(name, propellant_mass, dry_mass, isp, burn_time,
-                 isp - 101_325.0 * ae / (mdot * 9.80665) if ae > 0 else None, max_burns)
+                 isp - 101_325.0 * ae / (mdot * 9.80665) if ae > 0 else None, max_burns, coast)
         st.engines = pts
         return st
 

@@ -1,0 +1,67 @@
+# Start-1 from Svobodny: START-1 User's Handbook Vol. I (STC Complex-MIHT, 2002) reference
+# ascent, Figure 2-3: 481 km circular sun-synchronous orbit. Stages 1-3 put the stack on a
+# transfer orbit, it coasts to apogee and the solid stage 4 circularises.
+# Profile: docs/references/start/profile/
+#
+# The handbook gives burn times and the 47 t lift-off mass but no stage masses, thrust or Isp,
+# so this is the weakest of the models: Isp and dry masses are estimates for Topol-class
+# composite motors and the propellant masses are fitted to the handbook's trajectory. The fit
+# matches every staging point but needs 51.4 t at lift-off against the handbook's 47 t, with the
+# stage 1 and 2 Isp at the top of their plausible ranges: the dry-mass estimates are too heavy.
+# Stage 4 burns prograde, centred on apogee; the real one steers to hold altitude and the PBPS
+# then trims, so the model's final orbit is 479 x 550 km rather than 481 km circular.
+# The PBPS trim stage is not flown: its mass is in the stage 4 dry mass, and its 200 s burn adds
+# almost no velocity [UH f 2-3].
+#
+# Sources per value:  [UH x] = User's Handbook figure/table/section,  [fit] = calibrated by
+# examples/slv_ascent.py start1,  [der] = derived from UH values,  [est] = engineering estimate.
+kind: launch_vehicle
+
+vehicle:
+  name: Start-1
+  diameter: 1.8                     # [UH s 1.1]
+  payload_mass: 308                 # [UH t 2-1] SSO at 481 km (EarlyBird-1 flew 310 kg to 479 km)
+  fairing_mass: 250                 # [est]
+  adapter_mass: 40                  # [est]
+  stages:
+    - name: Stage 1
+      propellant_mass: 27338        # [fit]
+      dry_mass: 2700                # [est]
+      isp_vac: 285                  # [fit] at the top of its 255-285 s range
+      isp_sl: 245                   # [est]
+      burn_time: 63                 # [UH f 2-4]
+      coast: 24                     # [UH f 2-3] separation at 87 s
+    - name: Stage 2
+      propellant_mass: 11584        # [fit]
+      dry_mass: 1400                # [est]
+      isp_vac: 300                  # [fit] at the top of its 265-300 s range
+      burn_time: 60                 # [UH f 2-4]
+      coast: 1                      # [UH f 2-3] stage 3 ignition at 148 s
+    - name: Stage 3
+      propellant_mass: 4799         # [fit]
+      dry_mass: 800                 # [est]
+      isp_vac: 290                  # [est]
+      burn_time: 63                 # [UH f 2-4] 148 -> 211 s
+    - name: Stage 4                 # with GRACS and the PBPS
+      propellant_mass: 1600         # [est] ~2.7 km/s from 5012 to 7704 m/s [UH f 2-3]
+      dry_mass: 600                 # [est]
+      isp_vac: 290                  # [est]
+      burn_time: 53                 # [UH f 2-4]
+
+flight:
+  backend: orbital_ascent
+  latitude: 51.8                    # [est] Svobodny; first ground-track point 52.2 N 128.0 E [UH f 2-3]
+  longitude: 128.4
+  program:
+    target_inclination: 97.3        # [UH t 1-1] flown SSO missions at ~480 km
+    vertical_time: 4                # [est] cold launch from the canister
+    kick_angle: 25.66               # [fit]
+    kick_time: 8
+    upper_pitch: [[25.70, 26.53], [27.49, 32.93]]   # [fit] stages 2 and 3
+    insertion_burn: false           # stage 3 reaches the transfer orbit, stage 4 burns at apogee
+    transfer_apogee: 481.0e+3       # [UH f 2-3]
+    centre_apogee_burn: true        # the last burn straddles apogee
+    fairing_heat_flux: 1.603        # [fit] the fairing goes during the coast, at 295 s [UH f 2-3]
+
+atmosphere:
+  backend: isa

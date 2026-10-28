@@ -1,0 +1,36 @@
+# LM-2C payload capability. Altitudes above 6378.140 km equatorial radius.
+# source: "stated" = number in the text/tables; otherwise digitized from the UM figure (+/- 40 kg).
+config,site,orbit,inclination,hp_km,ha_km,payload_kg,source
+two_stage,JSLC,circular,50,200,200,3600,fig 3-3a
+two_stage,JSLC,circular,50,300,300,3240,fig 3-3a
+two_stage,JSLC,circular,50,400,400,2810,fig 3-3a
+two_stage,JSLC,circular,63,200,200,3366,stated s 3.2.2
+two_stage,JSLC,circular,63,300,300,2990,fig 3-3a
+two_stage,JSLC,circular,63,400,400,2580,fig 3-3a
+two_stage,JSLC,circular,86,200,200,2880,fig 3-3a
+two_stage,JSLC,circular,86,300,300,2500,fig 3-3a
+two_stage,JSLC,circular,86,400,400,2090,fig 3-3a
+two_stage,JSLC,circular,SSO,200,200,2600,fig 3-3a
+two_stage,JSLC,circular,SSO,300,300,2270,fig 3-3a
+two_stage,JSLC,circular,SSO,400,400,1870,fig 3-3a
+two_stage,JSLC,elliptical,63,200,400,3200,fig 3-3b
+two_stage,JSLC,elliptical,63,200,1000,2790,fig 3-3b
+two_stage,JSLC,elliptical,63,200,2000,2210,fig 3-3b
+two_stage,JSLC,elliptical,63,300,310,2960,fig 3-3b
+two_stage,JSLC,elliptical,63,300,2000,1980,fig 3-3b
+two_stage,JSLC,elliptical,63,400,420,2560,fig 3-3b
+two_stage,JSLC,elliptical,63,400,2000,1690,fig 3-3b
+cts,JSLC,circular,50,300,300,3000,fig 3-4a (stated 3000 kg at 500 km in s 3.2.3; 2800 kg in t 2-3)
+cts,JSLC,circular,50,500,500,2750,fig 3-4a
+cts,JSLC,circular,50,1000,1000,2320,fig 3-4a
+cts,JSLC,circular,50,1500,1500,1850,fig 3-4a
+cts,JSLC,circular,63,300,300,2770,fig 3-4a
+cts,JSLC,circular,63,1000,1000,2080,fig 3-4a
+cts,JSLC,circular,63,1500,1500,1670,fig 3-4a
+cts,JSLC,circular,86,300,300,2280,fig 3-4a
+cts,JSLC,circular,86,1000,1000,1720,fig 3-4a
+cts,JSLC,circular,86,1500,1500,1320,fig 3-4a
+cts,JSLC,circular,SSO,300,300,2020,fig 3-4a
+cts,JSLC,circular,SSO,900,900,1456,stated t 2-3
+cts,JSLC,circular,SSO,1000,1000,1470,fig 3-4a
+cts,JSLC,circular,SSO,1500,1500,1100,fig 3-4a

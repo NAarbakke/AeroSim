@@ -1,0 +1,64 @@
+# Long March 2C / CTS from Taiyuan: LM-2C User's Manual (CALT, 1999) reference trajectory,
+# Table 3-2: two stages fly onto a ~180 x 638 km transfer orbit, the solid CTS circularises
+# at apogee. The orbit (i = 86.1 deg, southbound) is derived from the table's ground track.
+# Profile: docs/references/long-march/profile/
+#
+# Stage 2's main engine stops at 301 s and its four verniers burn on alone to 613 s, so it is
+# flown as two stages: "Stage 2" (main + verniers) and "Stage 2 verniers" (which drops the
+# stage 2 dry mass).
+#
+# Sources per value:  [UM x] = User's Manual table/section,  [fit] = calibrated to Table 3-2 by
+# examples/slv_ascent.py long_march_2c,  [der] = derived from UM values,  [est] = engineering
+# estimate,  [ext] = public data outside the manual. The fitted lift-off mass is 212.1 t: the
+# manual gives 233 t in s 2.2 and 213 t in table 1-1, and the trajectory sides with 213 t.
+kind: launch_vehicle
+
+vehicle:
+  name: Long March 2C / CTS
+  diameter: 3.35                    # [UM s 2.2]
+  payload_mass: 2000                # [UM f 3-4a] CTS, ~630 km, 86 deg (JSLC curve)
+  fairing_mass: 1000                # [est] 3.35 x 8.4 m
+  adapter_mass: 55                  # [UM s 5.2.3.2] 937B
+  stages:
+    - name: Stage 1                 # 4 x DaFY6-2 (YF-21B)
+      propellant_mass: 139333       # [der] 1158.5 kg/s x 120.27 s; the UM loads 162706 kg
+      dry_mass: 11178               # [fit] structure + unburned propellant
+      isp_vac: 289.1                # [fit] (289 s [ext] to start)
+      isp_sl: 260.7                 # [UM t 2-1] 2961.6 kN at sea level
+      burn_time: 120.27             # [UM t 3-1]
+      coast: 1.5                    # [UM t 3-1] hot staging, separation at 121.77 s
+    - name: Stage 2                 # DaFY20-1 main + 4 x DaFY21-1 verniers
+      propellant_mass: 48505        # [der] (253.70 + 16.65) kg/s x 179.414 s
+      dry_mass: 0
+      isp_vac: 297.4                # [der] 788.6 kN / 270.35 kg/s [UM t 2-1]
+      burn_time: 179.414            # [UM t 3-1] 121.77 -> 301.184 s
+    - name: Stage 2 verniers
+      propellant_mass: 5197         # [der] 16.65 kg/s x 312.149 s
+      dry_mass: 4305                # [fit] stage 2 structure + residuals
+      isp_vac: 289.0                # [UM t 2-1]
+      burn_time: 312.149            # [UM t 3-1] 301.184 -> 613.333 s
+    - name: CTS                     # HTPB solid motor + hydrazine RCS
+      propellant_mass: 121.7        # [UM s 2.4.3]
+      dry_mass: 380                 # [est] motor case, structure, RCS, avionics
+      isp_vac: 285.9                # [UM s 2.4.3]
+      burn_time: 35                 # [UM s 2.4.3]
+
+flight:
+  backend: orbital_ascent
+  latitude: 38.661                  # [UM t 3-2] TSLC
+  longitude: 111.608
+  site_height: 1452
+  program:
+    target_inclination: 86.1        # [der] UM t 3-2 ground track
+    northbound: false
+    vertical_time: 10               # [UM t 3-1] pitch-over at 10 s
+    kick_angle: 8.92                # [fit]
+    kick_time: 10
+    upper_pitch: [[28.21, 1.60], [14.92, -5.45]]   # [fit] stage 2 main, verniers
+    insertion_burn: false           # stage 2 reaches the transfer orbit, the CTS burns at apogee
+    transfer_apogee: 637.8e+3       # [UM t 3-2]
+    centre_apogee_burn: true        # the last burn straddles apogee
+    fairing_heat_flux: 1135         # [UM s 4.1.1]
+
+atmosphere:
+  backend: isa

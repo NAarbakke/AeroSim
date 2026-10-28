@@ -73,3 +73,30 @@ def test_optimize_program_improves_delivered_mass():
     assert res.meta["warnings"] == []
     assert res.meta["propellant_left"] >= start
     assert best.kick_angle == pytest.approx(opt.x_phys[0])
+
+
+def test_kick_stage_coast_and_centred_apogee_burn():
+    """Stage 1 coasts before separating; stage 2 alone reaches the transfer orbit and the kick
+    stage only makes an apogee burn, started half its length before apogee."""
+    from aerosim.flight.rocket.orbital_ascent import _time_to_apogee
+
+    veh = LaunchVehicle(
+        stages=[Stage("S1", 20_000, 2_000, 300, 120, isp_sl=270, coast=5.0),
+                Stage("S2", 4_000, 400, 330, 250),
+                Stage("Kick", 300, 100, 290, 120)],
+        payload_mass=150, fairing_mass=100, diameter=1.5)
+    prog = AscentProgram(target_inclination=51.6, kick_angle=12.0, vertical_time=6, kick_time=10,
+                         upper_pitch=[[12.0, 4.0]], insertion_burn=False, centre_apogee_burn=True,
+                         transfer_apogee=400e3)
+    res = OrbitalAscentSim(45.9, 63.3, program=prog).run(veh)
+    ev = res.events
+    assert ev["S1_separation"] == pytest.approx(ev["S1_burnout"] + 5.0)
+    assert "Kick_burn1_start" not in ev and ev["Kick_burn2_start"] > ev["S2_burnout"]
+    # the burn straddles the transfer orbit's apogee
+    i = int(np.searchsorted(res.time, ev["Kick_burn2_start"]))
+    lead = _time_to_apogee(res.position[i], res.velocity[i])
+    burn = ev["Kick_burn2_end"] - ev["Kick_burn2_start"]
+    assert 0 < lead < burn
+    o = res.final_orbit
+    assert o.apogee_alt - o.perigee_alt < 0.5 * (res.orbits["transfer"].apogee_alt
+                                                 - res.orbits["transfer"].perigee_alt)

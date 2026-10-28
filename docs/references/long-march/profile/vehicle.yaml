@@ -1,0 +1,93 @@
+# Long March 2C (LM-2C) and LM-2C/CTS, CALT.
+# Source: LM-2C User's Manual, Issue 1999 (flight record updated to March 2002), 156 pp,
+# ../16906331-China-s-Long-March-2C-Users-Manual.pdf.
+#
+# Tags:  [UM t x] = manual table x   [UM s x] = section x   [UM f x] = figure x
+#        [der]    = derived here from UM values (method in README.md)
+#        [ext]    = not in the manual; public knowledge, verify before relying on it
+kind: launch_vehicle_profile
+
+vehicle:
+  name: Long March 2C
+  configurations:
+    - "Two-stage LM-2C: LEO h < 500 km, 3366 kg to 200 km / 63 deg"        # [UM s 2.1]
+    - "LM-2C/CTS: solid kick stage for LEO h >= 500 km and SSO, 1456 kg to 900 km SSO"
+  diameter: 3.35            # m, stages 1-2 and fairing [UM s 2.2]
+  length: 42.0              # m [UM s 2.2]; 40.4 m in [UM t 1-1]
+  liftoff_mass: 233000      # kg [UM s 2.2]; [UM t 1-1] gives 213 t (inconsistent, see README)
+  liftoff_thrust: 2962e3    # N [UM s 2.2]
+  propellants: N2O4 / UDMH
+
+  stages:
+    - name: Stage 1
+      engine: DaFY6-2, 4 x 740.4 kN single-chamber, swivel tangentially   # [UM s 2.3.2]; [ext] YF-21B
+      thrust_sl: 2961.6e3     # N [UM t 2-1]
+      isp_sl: 260.7           # s  (2556.5 N s/kg on ground) [UM t 2-1]
+      mass_flow: 1158.5       # kg/s [der] thrust_sl / (isp_sl g0)
+      propellant_mass: 162706 # kg [UM t 2-1]
+      burn_time: 120.27       # s, shutdown [UM t 3-1]; 162706 kg / 1158.5 kg/s would be 140 s (see README)
+      length: 25.720          # m [UM t 2-1]
+      diameter: 3.35
+      staging: hot separation, stage 2 ignites before the 12 explosive bolts release   # [UM s 2.3.6]
+    - name: Stage 2
+      engines:
+        main:     {designation: DaFY20-1, thrust_vac: 741.4e3, isp_vac: 298.0, mass_flow: 253.70}  # N, s (2922.37 N s/kg), kg/s [UM t 2-1] [der]
+        verniers: {designation: DaFY21-1, count: 4, thrust_vac_each: 11.8e3, isp_vac: 289.0, mass_flow_total: 16.65}  # (2834.11 N s/kg) [UM t 2-1] [der]
+      thrust_total_vac: 798.1e3   # N [UM s 2.3.2] (741.4 + 4 x 11.8 = 788.6; text says 798.1)
+      propellant_mass: 54667  # kg [UM t 2-1]
+      burn_main: [121.77, 305.77]     # s, two-stage LM-2C [UM t 3-1]
+      burn_verniers: [121.77, 566.234]  # s, verniers keep running after main engine cutoff
+      burn_main_cts: [121.77, 301.184]  # s, LM-2C/CTS
+      burn_verniers_cts: [121.77, 613.333]
+      propellant_check: 54083 # kg [der] used by the two-stage timeline at the derived flows (99 % of load)
+      length: 7.757           # m [UM t 2-1]
+      diameter: 3.35
+    - name: CTS                 # optional three-axis-stabilised solid kick stage [UM s 2.4]
+      motor: HTPB solid motor
+      propellant_mass: 121.7    # kg, typical [UM s 2.4.3]; [UM t 2-1] gives 125 kg SRM + 50 kg hydrazine RCS
+      isp_vac: 285.9            # s (2804 m/s) [UM s 2.4.3]
+      total_impulse: 341.3e3    # N s [UM s 2.4.3]
+      burn_time: 35             # s [UM s 2.4.3]
+      thrust_mean: 9.75e3       # N [der] total_impulse / burn_time; [UM t 2-1] says 10.78 kN
+      motor_diameter: 0.54      # m; length < 0.9 m, mass < 160 kg [UM s 2.4.3]
+      stage_diameter: 2.7       # m, length 1.5 m [UM t 2-1]
+      rcs: hydrazine monoprop, 4 tanks, 2 gas bottles, 16 thrusters
+      mission: LM-2C puts SC/CTS into a 200 x (400..2000) km transfer orbit; CTS burns at apogee  # [UM s 2.4]
+
+  fairing:
+    diameter: 3.35          # m [UM s 4.1.1]
+    length: 8.368           # m, adjustable
+    nose: hemisphere R 1.0 m, height 0.74 m, base dia 1.93 m       # [UM s 4.2.1]
+    forward_cone: 15 deg, height 2.647 m                           # [UM s 4.2.2]
+    cylinder: 3.400 m honeycomb + 1.581 m chem-milled              # [UM s 4.2.3]
+    vents: 12, 350 cm2 total
+    jettison_criterion: free-molecular heat flux < 1135 W/m2       # [UM s 4.1.1]
+    static_envelope_diameter: 3.0   # m
+  adapters:
+    937B:  {height: 0.900, top_dia: 0.94526, bottom_dia: 1.748, mass: 55}   # [UM s 5.2.3.2]
+    1194A: {height: 0.650, top_dia: 1.215,   bottom_dia: 1.748, mass: 53}
+
+launch_sites:               # [UM s 3.2.1]
+  JSLC: {latitude: 40.96, longitude: 100.29, elevation: 1072, note: "40°57.4'N 100°17.4'E, 1073 m in ch 7"}
+  XSLC: {latitude: 28.2,  longitude: 102.02, elevation: 1826}
+  TSLC: {latitude: 38.661, longitude: 111.608, elevation: 1452, note: "from the liftoff row of [UM t 3-2]"}
+
+constraints:
+  winds_aloft_q_alpha_max: 4000    # N/m2 rad [UM s 8.4]
+  ground_wind_max: 10              # m/s
+  axial_load_max_g: {stage1: 4.6, stage2: 6.7}   # static [UM s 6.3.3.1]
+  lateral_load_max_g: 0.4
+  fairing_depressurisation_max: 6.0  # kPa/s [UM s 6.3.1]
+
+design_limit_loads_g:       # at SC/LV plane [UM s 6.4.2]
+  transonic_max_q:   {static: 2.2, dynamic: 0.4, combined: 2.6, lateral: 1.0}
+  stage1_shutdown:   {static: 4.6, dynamic: 1.0, combined: 5.6, lateral: 0.6}
+  stage1_2_sep:      {static: 0.8, dynamic: 3.0, combined: "+3.8 / -2.2", lateral: 0.8}
+  stage2_shutdown:   {static: 6.7, dynamic: 0.5, combined: 7.2, lateral: 0.4}
+acoustic_oaspl: 140          # dB [UM s 6.3.4.3]
+random_vib_grms: 6.94
+
+injection_accuracy:
+  two_stage_200x400km_1sigma: {a_km: 1.1, e: 0.00022, i_deg: 0.045, raan_deg: 0.055, argp_deg: 1.67}  # [UM t 3-3]
+  cts_630km_circular_1sigma:  {h_km: 6, i_deg: 0.05, raan_deg: 0.06}                                 # [UM t 3-5]
+altitude_reference_radius: 6378.140   # km [UM ch 3]

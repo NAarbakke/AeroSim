@@ -32,15 +32,14 @@ THEMES = {
                    "#9085e9", "#e66767"],
         "font": '"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif', "mono": "ui-monospace,Consolas,monospace",
     },
-    # pure black (Vercel-style carbon) with LaTeX typography (Latin Modern) and pgfplots-like
-    # charts: framed axes, inward ticks, no grid, thin lines told apart by dash as well as hue
+    # pure black (Vercel-style carbon) with pgfplots-like charts: framed axes, inward ticks, no
+    # grid, thin lines told apart by dash as well as hue (the LaTeX typeface is one menu away)
     "carbon": {
         "surface": "#0a0a0a", "page": "#000000", "ink": "#ededed", "ink2": "#a1a1a1",
         "muted": "#6e6e6e", "grid": "#1c1c1c", "axis": "#3d3d3d",
         "series": ["#ededed", "#8ab4f8", "#f28b82", "#fdd663", "#81c995", "#c58af9",
                    "#78d9ec", "#a1a1a1"],
-        "font": '"Latin Modern Roman","LM Roman 10","CMU Serif",Georgia,serif',
-        "mono": '"Latin Modern Mono","LM Mono 10",monospace',
+        "font": '"Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif', "mono": "ui-monospace,Consolas,monospace",
         "academic": True,
     },
     # white paper: the look of LaTeX publication figures (pgfplots / matplotlib-pgf at column
@@ -60,14 +59,21 @@ THEMES = {
 # themes the site's pages can switch between at run time (nav toggle)
 SITE_THEMES = ("dark", "carbon", "paper")
 
-# typefaces, chosen independently of the colour theme ("theme" keeps the theme's own): LaTeX's
-# Latin Modern, or B612 - the typeface Airbus drew for cockpit displays - for a technical look
+# typefaces, chosen independently of the colour theme (until one is chosen, a theme uses its own):
+# the site's original sans, LaTeX's Latin Modern, or B612 - the typeface Airbus drew for cockpit
+# displays - for a technical look
 FONTS = {
+    "original": {"label": "Original", "font": THEMES["dark"]["font"], "mono": THEMES["dark"]["mono"]},
     "serif": {"label": "LaTeX serif", "font": THEMES["paper"]["font"], "mono": THEMES["paper"]["mono"]},
     "technical": {"label": "Technical (B612)", "font": '"B612","Segoe UI",system-ui,sans-serif',
                   "mono": '"B612",ui-monospace,Consolas,monospace'},   # + tabular figures
 }
 DARK_THEMES = ("dark", "carbon")
+
+
+def default_font(theme: str) -> str:
+    """The ``FONTS`` key a theme uses until the reader picks a typeface."""
+    return next((k for k, v in FONTS.items() if v["font"] == THEMES[theme]["font"]), "original")
 
 _current = {"theme": "light"}
 

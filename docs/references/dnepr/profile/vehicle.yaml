@@ -1,0 +1,88 @@
+# Dnepr-1 (converted SS-18 / R-36M ICBM), ISC Kosmotras, Baikonur silo launch.
+# Source: Dnepr Space Launch System User's Guide, Issue 2, November 2001 (76 pp),
+# ../Dnepr-User-Guide.pdf.
+#
+# Tags:  [UG t x]  = User's Guide table x   [UG s x] = section x   [UG f x] = figure x
+#        [der]     = derived here from UG values (method in README.md)
+#        [ext]     = not in the guide; public knowledge, verify before relying on it
+#        [interp]  = our reading of an ambiguous UG entry (see README.md)
+kind: launch_vehicle_profile
+
+vehicle:
+  name: Dnepr-1
+  heritage: SS-18 Satan (R-36M), stages 1-2 unmodified, stage 3 modified    # [UG s 4.1]
+  stages_count: 3                                                          # + Space Head Module
+  diameter: 3.0             # m, SHM intermediate section [UG s 4.4.1]; [ext] core 3.0 m
+  propellants: N2O4 / UDMH  # "Amyl / Heptyl" [UG t 4.1-1]
+  liftoff_mass: 208900      # kg with a 2000 kg SC [UG t 4.1-1] [interp]
+  flight_reliability: 0.97  # [UG t 4.1-1]
+  max_payload: 3700         # kg, 300 km [UG s 1]
+  launch_mode: >-
+    Silo, mortar ("black powder gas generator") ejection from the transport-and-launch canister to
+    ~20 m, stage 1 ignites after ejection [UG s 4.1]
+
+  stages:
+    - name: Stage 1
+      engines: 4 single-chamber motors, gimballed          # [UG s 4.1]; [ext] RD-264 (4 x RD-263)
+      thrust_vac: 4522.8e3      # N  (461.2 tf) [UG t 4.1-1]
+      propellant_mass: 147900   # kg, "effective propellant capacity" [UG t 4.1-1]
+      stack_mass_at_ignition: 208900   # kg [UG t 4.1-1] [interp]
+      dry_mass: 13620           # kg [der] = 208900 - 147900 - 47380
+      isp_vac: null             # not given
+    - name: Stage 2
+      engines: 1 main single-chamber motor + 4-chamber steering thruster   # [UG s 4.1]; [ext] RD-0255
+      thrust_vac: 760.0e3       # N  (77.5 tf) [UG t 4.1-1]
+      propellant_mass: 36740    # kg [UG t 4.1-1]
+      stack_mass_at_ignition: 47380    # kg [UG t 4.1-1] [interp]
+      dry_mass_plus_fairing: 4374      # kg [der] = 47380 - 36740 - 6266 (fairing drops during S2)
+      isp_vac: null
+    - name: Stage 3
+      engines: >-
+        Two-mode liquid motor, "drag" (pulling) scheme; full-thrust mode, then a programmed 180 deg turn
+        and throttled-back mode; SC separation by the stage backing away under low thrust  # [UG s 4.1]
+        [ext] RD-869
+      thrust_vac: 18.63e3       # N, primary mode (1.9 tf) [UG t 4.1-1]
+      thrust_vac_throttled: 7.85e3     # N, throttled-back mode (0.8 tf) [UG t 4.1-1]
+      propellant_mass: 1910     # kg [UG t 4.1-1]
+      stack_mass_at_ignition: 6266     # kg incl. SHM and 2000 kg SC [UG t 4.1-1] [interp]
+      dry_mass_plus_shm: 2356   # kg [der] = 6266 - 1910 - 2000
+      isp_vac: null
+      plume_exit_velocity: 3670 # m/s, undisturbed plume gas at the SHM plane, rises to 3764 at 50 m [UG t 9.8-1]
+      plume_composition: {N2: 0.28, H2: 0.27, H2O: 0.21, CO2: 0.18, CO: 0.06}   # [UG s 9.8]
+
+  space_head_module:
+    fairing: SS-18 standard four-cone fairing, two half-shells on hinges   # [UG s 4.4.1]
+    intermediate_section: {length: 2.080, diameter: 3.0, extension: [0.85, 2.0]}  # m [UG s 4.4.1]
+    shm_length: 5.25          # m, standard [UG s 4.4.2]
+    adapter_height: 0.55      # m [UG s 4.4.2]
+    configurations:
+      - "1: new intermediate section + gas-dynamic shield (GDS)"
+      - "2: standard platforms A and B + Encapsulated Payload Module (EPM)"
+    fairing_rf_shielding_until: 275    # s, fairing adds 10-20 dB shielding up to ~275 s [UG s 9.9]
+
+launch_site:
+  name: Baikonur, Sites 106 / 109 (silo launchers), LCC at Site 111/2   # [UG s 6.4, 7.7]
+  latitude: 46.0            # [UG s 5] "63 E and 46 N" (rounded)
+  longitude: 63.0
+  inclinations: [50.5, 64.5, 87.3, 98.0]    # deg, fixed by SS-18 drop zones [UG s 1]
+
+loads:                      # g at SC/LV interface, incl. gravity [UG t 9.2-2]
+  canister_exit:       {axial: "2.5 +/- 0.7", lateral: "+/- 0.3"}
+  after_canister_exit: {axial: "+/- 1.0",     lateral: "+/- 0.8"}
+  stage1_max_q:        {axial: "3.0 +/- 0.5", lateral: "0.5 +/- 0.5"}
+  stage1_max_axial:    {axial: "7.5 +/- 0.5", lateral: "0.1 +/- 0.5"}
+  stage2_max_axial:    {axial: "7.8 +/- 0.5", lateral: "0.2"}
+  stage3:              {axial: "-0.3 ... -0.5", lateral: "0.25"}   # negative: stage 3 pulls from ahead
+  fairing_gds_heat_flux_max: 1000        # W/m2 from GDS inner surface [UG s 9.6]
+  fairing_pressure_rate_max: 0.035       # kgf/cm2/s [UG s 9.7]
+  acoustic_oaspl: 140                    # dB for 35 s [UG t 9.5-1]
+  random_vib_grms: {liftoff_transonic_maxq: 6.5, rest: 3.6}   # [UG t 9.3-3], 35 s and 831 s
+
+injection_accuracy:         # P = 0.993 [UG t 4.2-1]
+  - {orbit: "300 km, 98 deg", altitude_km: 4.0,  period_s: 3.0, incl_deg: 0.040, raan_deg: 0.050}
+  - {orbit: "600 km, 98 deg", altitude_km: 5.5,  period_s: 4.0, incl_deg: 0.045, raan_deg: 0.060}
+  - {orbit: "900 km, 65 deg", altitude_km: 10.0, period_s: 6.5, incl_deg: 0.050, raan_deg: 0.070}
+separation:
+  attitude_error_deg: 1.5   # pitch/yaw/roll at separation command [UG s 8.1]
+  rate_error_deg_s: 0.5
+  sc_rates_after_deg_s: {x: 2.0, y: 3.0, z: 3.0}   # SC > 300 kg

@@ -1,0 +1,27 @@
+# Strela payload to circular orbit, SHS-2 configuration (add 105 kg for SHS-1). Digitized from
+# UM Fig. 3.1, +/- 30 kg. Svobodny for 51.8/61/90 deg and SSO, Baikonur for 62.8 deg.
+# SSO points: i = 96.5 deg at 250 km, 97.36 deg at ~520 km, 99.0 deg at ~900 km (curve ends there).
+inclination,altitude_km,payload_kg
+51.8,250,1440
+51.8,500,1240
+51.8,1000,850
+51.8,1500,670
+51.8,2000,430
+61.0,250,1350
+61.0,500,1160
+61.0,1000,785
+61.0,1500,600
+61.0,2000,360
+62.8,250,1335
+62.8,500,1140
+62.8,1000,760
+62.8,1500,575
+62.8,2000,330
+90.0,250,1050
+90.0,500,895
+90.0,1000,620
+90.0,1500,330
+90.0,2000,100
+SSO,250,985
+SSO,520,800
+SSO,900,525

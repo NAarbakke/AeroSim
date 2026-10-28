@@ -1,12 +1,15 @@
 """Animated 3D replay of orbital ascents as a standalone HTML page (three.js, no Python deps).
 
-``write_replay(results, path, site=(lat, lon))`` writes one self-contained page:
+``write_replay(results, path, site=(lat, lon))`` writes one self-contained page;
+``ascent_html(vehicles)`` puts several launch vehicles on one page behind a selector
+(``#<key>`` in the URL opens one), each with its own models, launch site and guide waypoints:
 
 - globe      Earth-fixed 3D view (drag to orbit, scroll to zoom): coastlines, graticule, the
              launch site, and each trajectory drawn as it flies, with staging events marked
 - telemetry  per model: flight phase, altitude, speed, dynamic pressure, acceleration, mass,
              downrange
-- charts     altitude and speed against time, the axis widening as the replay advances
+- charts     altitude and speed against time, the axis widening as the replay advances, with
+             the user's guide waypoints as rings
 - controls   play / pause (space), time scale (x10 to x1000; coasts run 10x faster), scrub
              bar, follow-the-vehicle camera, altitude exaggeration
 
@@ -47,6 +50,8 @@ def _pack(res, max_points: int = 4000) -> dict:
     r = lambda a, d: np.round(np.asarray(a, float)[idx], d).tolist()
     ev = {k: float(v) for k, v in res.events.items() if k != "liftoff" and not k.endswith("_start")
           and v <= res.time[-1]}
+    for k in [k for k in ev if k.endswith("_burnout") and f"{k[:-8]}_separation" in ev]:
+        ev[f"{k[:-8]} cutoff"] = ev.pop(k)          # it coasts to a separate separation event
     ev = dict(sorted(ev.items(), key=lambda kv: kv[1]))
     return {"t": r(res.time, 1), "lat": r(res.latitude, 4), "lon": r(res.longitude, 4),
             "alt": r(res.altitude / 1e3, 3), "v": r(res.speed / 1e3, 4),
@@ -76,13 +81,30 @@ def replay_html(results, site: tuple[float, float], title: str = "Ascent replay"
     bar HTML (``aerosim.plots.web.nav``) placed above the replay when it is part of a site."""
     if not isinstance(results, dict):
         results = {"Model": results}
+    return ascent_html([{"name": title, "title": title, "subtitle": subtitle, "site": site,
+                         "results": results}], title, theme, nav, max_points=4000)
+
+
+def ascent_html(vehicles: list[dict], title: str = "Rocket ascent", theme: str = "dark",
+                nav: str = "", max_points: int = 3000) -> str:
+    """One replay page for several vehicles. Each entry: ``name`` (selector), ``title`` and
+    ``subtitle`` (heading), ``site`` (lat, lon), ``results`` {model name: AscentResult}, and
+    optionally ``key`` (URL hash, default: slug of the name) and ``guide``: waypoints
+    [(label, time s, altitude m | None, speed m/s | None)] drawn on the charts."""
     T = THEMES[theme]
     coast = json.loads(resources.files("aerosim.plots").joinpath("data/coastline_110m.json")
                        .read_text(encoding="utf-8"))["lines"]
-    data = {"models": [{"name": k, "color": T["series"][i], **_pack(r)}
-                       for i, (k, r) in enumerate(results.items())],
-            "site": list(site), "coast": coast, "theme": T, "dark": theme == "dark"}
-    page = _PAGE.replace("__TITLE__", html.escape(title)).replace("__SUB__", html.escape(subtitle))
+    rnd = lambda x, s, d: None if x is None else round(x / s, d)
+    vs = [{"key": v.get("key") or "".join(c if c.isalnum() else "-" for c in v["name"].lower()),
+           "name": v["name"], "title": v.get("title", v["name"]), "sub": v.get("subtitle", ""),
+           "site": list(v["site"]),
+           "models": [{"name": k, "color": T["series"][i], **_pack(r, max_points)}
+                      for i, (k, r) in enumerate(v["results"].items())],
+           "guide": [[lab, t, rnd(h, 1e3, 2), rnd(sp, 1e3, 4)] for lab, t, h, sp in v.get("guide", [])]}
+          for v in vehicles]
+    data = {"vehicles": vs, "coast": coast, "theme": T, "dark": theme == "dark"}
+    page = (_PAGE.replace("__TITLE__", html.escape(title))
+            .replace("__HEAD__", html.escape(vs[0]["title"])).replace("__SUB__", html.escape(vs[0]["sub"])))
     from aerosim.plots.web import themed
     page = themed(page, theme)              # CSS variables + the run-time theme switch
     page = page.replace("__DATA__", json.dumps(data, separators=(",", ":")).replace("</", "<\\/"))
@@ -113,7 +135,7 @@ font:14px/1.4 var(--font)}
 #app{display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:minmax(0,1fr) auto;
 height:100vh}
 #globe{position:relative;min-height:0;background:var(--page)}#globe canvas{display:block}
-#hud{position:absolute;left:20px;top:16px;pointer-events:none}
+#hud{position:absolute;left:20px;top:16px;pointer-events:none;max-width:70%}
 #hud h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
 #hud p{margin:2px 0 0;color:var(--ink2);font-size:13px}
 #clock{position:absolute;left:20px;bottom:14px;font:600 30px/1 var(--mono);
@@ -132,7 +154,8 @@ h3{margin:16px 0 4px;font-size:13px;font-weight:600}
 canvas.chart{width:100%;height:150px;display:block}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink2);margin-bottom:2px}
 .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;
-vertical-align:middle}
+vertical-align:middle}.legend i.ring{width:9px;height:9px;border-radius:50%;background:none;
+border:1.5px solid var(--ink)}
 #events{list-style:none;margin:0;padding:0;font-size:12.5px}
 #events li{display:flex;gap:8px;padding:3px 0;color:var(--muted);border-bottom:1px solid var(--grid)}
 #events li.done{color:var(--ink)}#events li b{font-weight:500;margin-left:auto;
@@ -143,7 +166,7 @@ button,select{font:inherit;color:var(--ink);background:var(--page);border:1px so
 border-radius:6px;padding:5px 12px;cursor:pointer}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid __SERIES0__;
 outline-offset:2px}
-#play{min-width:76px;font-weight:600}
+#play{min-width:76px;font-weight:600}#veh{font-weight:600}
 #scrub{flex:1;min-width:160px;accent-color:__SERIES0__}
 label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;cursor:pointer}
 @media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:60vh auto auto;height:auto}
@@ -151,7 +174,7 @@ label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;c
 #clock{font-size:22px}}
 </style></head><body>
 <div id="app">
- <div id="globe"><div id="hud"><h1>__TITLE__</h1><p>__SUB__</p></div>
+ <div id="globe"><div id="hud"><h1 id="head">__HEAD__</h1><p id="sub">__SUB__</p></div>
   <div id="clock">T+00:00<small>&nbsp;</small></div></div>
  <div id="side">
   <div id="cards"></div>
@@ -161,6 +184,7 @@ label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;c
   <h3>Events</h3><ul id="events"></ul>
  </div>
  <div id="bar">
+  <select id="veh" aria-label="Launch vehicle"></select>
   <button id="play" aria-label="Play or pause">Play</button>
   <select id="rate" aria-label="Time scale">
    <option value="10">×10</option><option value="30" selected>×30</option>
@@ -177,9 +201,9 @@ label{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;c
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 const D = JSON.parse(document.getElementById("data").textContent), TK = window.AEROSIM_THEME || D.theme;
-if (window.AEROSIM_THEME) { D.dark = !!TK.dark; D.models.forEach((m, i) => { m.color = TK.series[i % TK.series.length]; }); }
+if (window.AEROSIM_THEME) D.dark = !!TK.dark;
 const R = 6.371, KM = 1e-3;                       // scene unit = 1000 km
-const M = D.models, tEnd = Math.max(...M.map(m => m.t[m.t.length - 1]));
+let V = null, M = [], tEnd = 1, allEv = [];       // the selected vehicle and its models
 const rad = Math.PI / 180;
 const xyz = (lat, lon, r) => new THREE.Vector3(r * Math.cos(lat * rad) * Math.cos(lon * rad),
   r * Math.sin(lat * rad), -r * Math.cos(lat * rad) * Math.sin(lon * rad));
@@ -222,12 +246,12 @@ const dot = (color, size) => new THREE.Points(new THREE.BufferGeometry(),
   new THREE.PointsMaterial({color, size, sizeAttenuation: false, map: disc, transparent: true,
     alphaTest: 0.5}));
 const site = dot(TK.ink, 7);
-site.geometry.setAttribute("position", new THREE.Float32BufferAttribute(xyz(D.site[0], D.site[1], R * 1.002).toArray(), 3));
 scene.add(site);
 
 // ---------- trajectories ----------
 let exag = 1;
-for (const m of M) {
+function build() {
+ for (const m of M) {
   const n = m.t.length;
   m.pos = new Float32Array(n * 3);
   m.ghost = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: m.color, transparent: true, opacity: 0.35}));
@@ -238,6 +262,11 @@ for (const m of M) {
   m.halo = dot(TK.surface, 17); m.halo.geometry.setAttribute("position", m.craft.geometry.attributes.position);
   m.evPts = dot(m.color, 7); m.evPts.geometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(m.events.length * 3), 3));
   scene.add(m.ghost, m.line, m.evPts, m.halo, m.craft);
+ }
+}
+function clear() {
+  for (const m of M) for (const o of [m.ghost, m.line, m.evPts, m.halo, m.craft]) {
+    scene.remove(o); o.geometry.dispose(); o.material.dispose(); }
 }
 function find(a, x) { let lo = 0, hi = a.length - 1; if (x <= a[0]) return 0; if (x >= a[hi]) return hi - 1;
   while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (a[mid] <= x) lo = mid; else hi = mid; } return lo; }
@@ -263,28 +292,32 @@ function place() {
     ep.needsUpdate = true; m.evPts.geometry.computeBoundingSphere();
   }
 }
-place();
 
 // camera: look down on the first quarter of the flown arc
-const m0 = M[0], k0 = Math.floor(m0.t.length / 4);
-const look = new THREE.Vector3(m0.pos[3 * k0], m0.pos[3 * k0 + 1], m0.pos[3 * k0 + 2]).normalize();
-camera.position.copy(look.multiplyScalar(R * 2.9)); controls.target.set(0, 0, 0);
+function aim() {
+  const m0 = M[0], k0 = Math.floor(m0.t.length / 4);
+  const look = new THREE.Vector3(m0.pos[3 * k0], m0.pos[3 * k0 + 1], m0.pos[3 * k0 + 2]).normalize();
+  camera.position.copy(look.multiplyScalar(R * 2.9)); controls.target.set(0, 0, 0);
+}
 
 // ---------- side panel ----------
-const cards = document.getElementById("cards");
-for (const m of M) {
+const cards = document.getElementById("cards"), evList = document.getElementById("events");
+function panel() {
+ cards.textContent = ""; evList.textContent = "";
+ for (const m of M) {
   const c = document.createElement("div"); c.className = "card";
   c.innerHTML = `<h2><span class="sw" style="background:${m.color}"></span>${m.name}<span class="ph"></span></h2>
   <div class="tm"><div data-k="alt">–<span>altitude, km</span></div><div data-k="v">–<span>speed, km/s</span></div>
   <div data-k="q">–<span>dyn. pressure, kPa</span></div><div data-k="g">–<span>acceleration, g</span></div>
   <div data-k="m">–<span>mass, t</span></div><div data-k="dr">–<span>downrange, km</span></div></div>`;
   cards.append(c); m.card = c;
+ }
+ const key = [...(M.length > 1 ? M.map(m => `<span><i style="background:${m.color}"></i>${m.name}</span>`) : []),
+   ...(V.guide.length ? ['<span><i class="ring"></i>User guide</span>'] : [])].join("");
+ for (const id of ["lg1", "lg2"]) document.getElementById(id).innerHTML = key;
+ allEv = M[0].events.map(([n, te]) => { const li = document.createElement("li");
+   li.innerHTML = `${n}<b>${te.toFixed(0)} s</b>`; evList.append(li); return [te, li]; });
 }
-for (const id of ["lg1", "lg2"]) document.getElementById(id).innerHTML = M.length > 1
-  ? M.map(m => `<span><i style="background:${m.color}"></i>${m.name}</span>`).join("") : "";
-const evList = document.getElementById("events");
-const allEv = M[0].events.map(([n, te]) => { const li = document.createElement("li");
-  li.innerHTML = `${n}<b>${te.toFixed(0)} s</b>`; evList.append(li); return [te, li]; });
 
 function chart(cv, key, t) {
   const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio, 2);
@@ -318,6 +351,10 @@ function chart(cv, key, t) {
     c.beginPath(); c.arc(X(Math.min(t, m.t[m.t.length - 1])), Y(s[key]), A ? 3 : 5, 0, 7);
     c.fillStyle = m.color; c.fill(); c.lineWidth = A ? 1 : 2; c.strokeStyle = TK.surface; c.stroke();
   });
+  const gk = key === "alt" ? 2 : 3;                // guide waypoints: rings
+  c.strokeStyle = TK.ink; c.lineWidth = 1.5;
+  for (const g of V.guide) if (g[gk] !== null && g[1] <= xmax && g[gk] <= ymax) {
+    c.beginPath(); c.arc(X(g[1]), Y(g[gk]), 4, 0, 7); c.stroke(); }
   if (A) { c.strokeStyle = TK.ink; c.lineWidth = 0.75; c.strokeRect(L + 0.5, 6.5, W, H); }
   if (KI && M.length > 1) {                     // key inside the frame, top right, no box
     const lg = cv.previousElementSibling; if (lg && lg.classList.contains("legend")) lg.style.display = "none";
@@ -344,6 +381,24 @@ function resize() { const r = host.getBoundingClientRect(); renderer.setSize(r.w
   renderer.domElement.style.width = r.width + "px"; renderer.domElement.style.height = r.height + "px";
   camera.aspect = r.width / r.height; camera.updateProjectionMatrix(); }
 addEventListener("resize", resize); resize();
+
+// ---------- vehicle ----------
+const veh = document.getElementById("veh");
+D.vehicles.forEach(v => veh.add(new Option(v.name, v.key)));
+veh.hidden = D.vehicles.length < 2;
+function load(k) {
+  clear(); V = D.vehicles[k]; M = V.models;
+  M.forEach((m, i) => { m.color = TK.series[i % TK.series.length]; });
+  tEnd = Math.max(...M.map(m => m.t[m.t.length - 1]));
+  site.geometry.setAttribute("position", new THREE.Float32BufferAttribute(xyz(V.site[0], V.site[1], R * 1.002).toArray(), 3));
+  site.geometry.computeBoundingSphere();
+  build(); place(); aim(); panel();
+  for (const m of M) m.s = sample(m, 0);
+  document.getElementById("head").textContent = V.title; document.getElementById("sub").textContent = V.sub;
+  t = 0; playing = false; play.textContent = "Play"; scrub.value = 0; veh.value = V.key;
+}
+veh.onchange = () => { load(veh.selectedIndex); try { history.replaceState(null, "", "#" + V.key); } catch (e) {} };
+load(Math.max(D.vehicles.findIndex(v => "#" + v.key === location.hash), 0));
 
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.5); last = now;

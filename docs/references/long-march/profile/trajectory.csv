@@ -1,0 +1,19 @@
+# LM-2C/CTS typical trajectory (630 km class, TSLC liftoff, southbound ~86 deg).
+# Event times: UM Table 3-1 (both configurations). State: UM Table 3-2 (LM-2C/CTS only).
+# v = relative velocity, lat/lon = sub-vehicle point, fpa = "ballistic inclination": angle above the
+# LAUNCH POINT's horizontal plane; local flight-path angle = fpa + degrees(ground_range_km / 6378.14).
+# Two-stage LM-2C rows have times only (t_two_stage_s); its state vector is not tabulated.
+event,t_cts_s,t_two_stage_s,v_rel_m_s,h_km,ground_range_km,fpa_deg,lat_deg,lon_deg
+liftoff,0.000,0.000,0.2,1.452,0,90,38.661,111.608
+pitch_over,10.000,10.000,,,,,,
+stage1_shutdown,120.270,120.270,2035.853,47.052,61.755,22.765,38.106,111.633
+stage1_2_separation,121.770,121.770,2043.777,48.257,64.549,22.403,38.081,111.635
+fairing_jettison,231.670,231.670,3698.167,117.618,352.768,4.263,35.490,111.729
+stage2_main_shutdown,301.184,305.770,6379.424,146.895,679.624,-2.540,32.551,111.813
+stage2_vernier_shutdown,613.333,566.234,7917.684,181.142,2825.723,-25.629,13.252,112.076
+stage2_cts_separation,616.333,,7918.657,181.104,2848.800,-25.829,13.045,112.077
+sc_lv_separation_two_stage,,569.234,,,,,,
+cts_srm_ignition,2888.347,,7402.700,637.804,18860.013,-173.727,-44.220,-80.123
+terminal_velocity_adjustment_end,2928.347,,7512.356,639.455,18971.228,-177.295,-41.780,-80.001
+sc_lv_separation,3013.347,,7520.725,637.611,18983.402,177.366,-36.557,-79.808
+cts_deorbit,3213.347,,,,,,,

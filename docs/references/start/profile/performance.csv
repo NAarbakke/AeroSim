@@ -1,0 +1,22 @@
+# Start-1 payload to circular orbit from Svobodny, UH Table 2-1 (exact values; Fig. 2-2 plots the same).
+config,inclination,altitude_km,payload_kg
+with_pbps,52,200,632
+with_pbps,52,400,505
+with_pbps,52,600,395
+with_pbps,52,800,295
+with_pbps,52,1000,204
+with_pbps,90,200,488
+with_pbps,90,400,374
+with_pbps,90,600,275
+with_pbps,90,800,186
+with_pbps,90,1000,105
+with_pbps,SSO,200,458
+with_pbps,SSO,400,347
+with_pbps,SSO,600,250
+with_pbps,SSO,800,165
+with_pbps,SSO,1000,86
+without_pbps,SSO,200,550
+without_pbps,SSO,400,450
+without_pbps,SSO,600,350
+without_pbps,SSO,800,250
+without_pbps,SSO,1000,150

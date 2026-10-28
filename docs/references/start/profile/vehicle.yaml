@@ -1,0 +1,86 @@
+# Start-1 (SS-25 Topol derived, all-solid), STC Complex-MIHT / United Start.
+# Source: START-1 Space Launch System User's Handbook, Volume I (SC & LV interfaces),
+# Issue 1, May 2002 (70 pp), ../START-1_user_handbook_vol1.pdf.
+#
+# Tags:  [UH t x] = handbook table x   [UH s x] = section x   [UH f x] = figure x
+#        [der]    = derived here from UH values (method in README.md)
+#        [ext]    = not in the handbook; public knowledge, verify before relying on it
+kind: launch_vehicle_profile
+
+vehicle:
+  name: Start-1
+  heritage: SS-25 (RT-2PM Topol) ICBM elements             # [UH intro]
+  stages_count: 4           # + post-boost propulsion system (PBPS) [UH s 1.2]
+  liftoff_mass: 47000       # kg [UH s 1.1]
+  diameter: 1.8             # m, maximum [UH s 1.1]
+  length: 22.7              # m [UH s 1.1, f 1-1]
+  launch_mode: >-
+    Cold launch: the transport-and-launch canister (TLC) is raised vertical on a launch stand or
+    7-axle mobile launcher, and a solid hot-gas generator ejects the LV; stage 1 fires at a safe
+    distance [UH s 1.1, 2.2]
+  guidance: autonomous inertial, gyro-stabilised platform; GLONASS/GPS trajectory telemetry   # [UH s 1.2.3, 1.5]
+
+  stages:                   # every boost motor is composite solid propellant; no masses or thrust given
+    - name: Stage 1
+      controls: gas vanes + air vanes + fins          # [UH s 1.2.1, f 1-1]
+      burn_time: 63         # s [UH f 2-4]
+      coast_after: 21       # s before separation [UH f 2-4]; 10-20 s in [UH s 2.2]
+      separation_time: 87   # s [UH f 2-3]
+      max_axial_g: 5.15     # [UH t 4-1]
+      interstage_IS1_release: 116   # s, 10-20 s after S1/S2 separation [UH s 2.2, f 2-3]
+    - name: Stage 2
+      controls: gas-dynamic (pitch, yaw, roll)
+      burn_time: 60         # s [UH f 2-4]
+      separation_time: 148  # s, no coast: stage 3 fires immediately [UH s 2.2, f 2-3]
+      max_axial_g: 6.5
+    - name: Stage 3
+      burn_time: 63         # s [UH f 2-4]
+      separation_time: 211  # s, GRACS takes over [UH f 2-3]
+      max_axial_g: 6.5
+    - name: Stage 4
+      burn_time: 53         # s [UH f 2-4]
+      ignition: near target altitude after a 150-500 s GRACS coast   # [UH s 2.2, f 2-4]
+      max_axial_g: 10.0     # for a 240 kg SC [UH t 4-1]; 13 g at 50 kg, 8.4 g at 400 kg [UH f 4-1]
+      gracs: nitrogen cold-gas attitude control in the stage 4 aft section   # [UH s 1.2.1]
+    - name: PBPS
+      type: solid gas generator, 3 pairs of push nozzles facing away from the SC; stays on stage 4   # [UH s 1.2.2]
+      ignition_delay: 3     # s after stage 4 burnout, up to 5 s [UH s 2.2, f 2-4]
+      burn_time: 200        # s [UH f 2-4]
+      max_axial_g: 0.1      # [UH t 4-1]
+      optional: true        # dropping it adds ~64-100 kg of payload but loosens apogee accuracy to +/-85 km [UH t 2-1, 2-2]
+
+  head_module:
+    payload_envelope: {diameter_max: 1.240, diameter_base: 0.850, height_cyl: 1.620, height_total: 2.310}  # m [UH f 3-1]
+    adapter: frame type, 3 explosive locks, 4 spring pushers 106 kgf, 30 mm stroke   # [UH s 3.1.2]
+    fairing_jettison: lateral manoeuvre during the main coast; V <= 5500 m/s, h >= 150 km   # [UH s 2.2, 4.4.3]
+
+launch_sites:
+  Svobodny: {latitude: 51.8, longitude: 128.4, note: "[ext] approximate; the UH gives no coordinates. First ground-track point is 52.2 N, 128.0 E at 87 s"}
+  Plesetsk: {note: "demo launch 1993-03-25 [UH s 1.6]"}
+
+loads_g:                    # [UH t 4-1], max for a 240 kg SC
+  tlc_erection_launch: {axial: 2.8, lateral: 2.0}
+  stage1: {axial: 5.15, lateral: 0.7}
+  stage2: {axial: 6.5,  lateral: 0.6}
+  stage3: {axial: 6.5,  lateral: 0.4}
+  gracs:  {axial: 0.0,  lateral: 0.01}
+  stage4: {axial: 10.0, lateral: 0.5}
+  pbps:   {axial: 0.1,  lateral: 0.03}
+angular_rate_max_deg_s: 25  # [UH s 4.2]; accel 24.5 roll, 11 yaw, 22 pitch deg/s2
+acoustic_oaspl: 138         # dB, 30 s at transonic [UH s 4.3.1]
+fairing_pressure_max_over: 0.2  # kgf/cm2 [UH s 4.5]
+
+injection_accuracy:         # confidence 0.993 [UH t 2-2]
+  with_pbps:    {h_injection_km: 5, h_opposite_km: 5,  incl_arcmin: 3}
+  without_pbps: {h_injection_km: 5, h_opposite_km: 85}
+separation:
+  attitude_deg: 5
+  delta_v_m_s: "0.7-0.15 +/-10 % depending on SC mass"    # [UH s 2.5]
+  sc_rates_deg_s: {pitch_yaw: 1.3, roll: 1.0}
+  time_after_stage4_burnout: 375     # s [UH s 2.2]
+
+flight_record:              # [UH t 1-1], nominal mean altitude and inclination, period in s
+  - {date: 1997-03-04, sc: Zeya,       mass: 87,  h_km: 490.4, i_deg: 97.27, period_s: 5647.8}
+  - {date: 1997-12-24, sc: EarlyBird-1, mass: 310, h_km: 479.2, i_deg: 97.30, period_s: 5642.7}
+  - {date: 2000-12-05, sc: EROS-A1,    mass: 247, h_km: 493.9, i_deg: 97.33, period_s: 5660.6}
+  - {date: 2001-02-20, sc: Odin,       mass: 240, h_km: 611.5, i_deg: 97.83, period_s: 5806.7}

@@ -1,0 +1,23 @@
+# Start-1 SSO ascent from Svobodny. Two cases from the handbook:
+#   case=pbps    Fig. 2-3, standard LV, 481.0 km circular SSO (printed R = 6838 km = h + 6357 km polar radius)
+#   case=no_pbps Fig. 2-5, without PBPS, 620.8 km circular SSO (printed R = 6978 km = h + 6357 km polar radius)
+# v = velocity (m/s), fpa = trajectory angle theta (deg), range = S (km), lat/lon = B/L of the ground point.
+# Fig. 2-5 labels the 585 s point "4th Stage Motor Burnout"; by the sequence it is 4th stage ignition.
+case,event,t_s,v_m_s,h_km,range_km,fpa_deg,lat_deg,lon_deg
+pbps,stage1_separation_stage2_ignition,87,1283,39.7,50,27.6,52.200,128.000
+pbps,IS1_release,116,,58.3,94,,,
+pbps,stage2_separation_stage3_ignition,148,3347,86.5,174,18.1,53.300,127.700
+pbps,stage3_separation_gracs_on,211,5535,167.9,424,19.2,55.500,126.700
+pbps,fairing_release,295,5306,303.7,845,15.0,59.100,124.600
+pbps,stage4_ignition,488,5012,477.8,1761,4.7,66.800,118.400
+pbps,stage4_burnout_pbps_ignition,538,7704,478.7,2047,0.0,69.200,115.800
+pbps,pbps_cutoff_gracs_on,763,7703,480.9,3661,0.0,80.700,79.200
+pbps,sc_separation,912,7703,481.0,4753,0.0,79.700,17.933
+no_pbps,stage1_separation_stage2_ignition,87,1285,39.7,51,27.6,52.200,128.000
+no_pbps,IS1_release,116,,58.5,94,,,
+no_pbps,stage2_separation_stage3_ignition,148,3309,91.3,171,22.8,53.300,127.700
+no_pbps,stage3_separation_gracs_on,211,5506,192.0,411,22.6,55.400,126.700
+no_pbps,fairing_release,295,5236,352.7,818,18.6,58.800,124.700
+no_pbps,stage4_ignition,585,4776,623.5,2118,2.3,69.700,114.900
+no_pbps,stage4_burnout_gracs_on,635,7628,619.4,2392,0.0,71.900,111.700
+no_pbps,sc_separation,1010,7627,620.8,5021,0.0,79.700,3.133

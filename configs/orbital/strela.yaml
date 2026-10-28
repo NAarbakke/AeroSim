@@ -1,0 +1,55 @@
+# Strela from Svobodny: Strela Launch Vehicle User Manual (NPO Mashinostroyenia, 2nd ed. 1999)
+# reference mission, Figure 3.4: 700 kg to 1000 km circular, i = 90 deg, by direct ascent onto a
+# transfer orbit and one burn of the missile's instrument section (MIS) at apogee.
+# Profile: docs/references/strela/profile/
+#
+# Sources per value:  [UM x] = User Manual figure/table/section,  [rockot] = same RS-18 stage
+# as configs/orbital/rockot.yaml (Rockot User's Guide / Encyclopedia Astronautica),
+# [fit] = calibrated to the UM reference trajectory by examples/slv_ascent.py strela,
+# [der] = derived from UM values,  [est] = engineering estimate. The fit gives a 96.2 t lift-off
+# against the UM's ~105 t: more stage 1 propellant would also mean more thrust (mass flow is
+# propellant / burn time), which the trajectory does not allow.
+kind: launch_vehicle
+
+vehicle:
+  name: Strela
+  diameter: 2.5                     # [UM s 2]
+  payload_mass: 700                 # [UM f 3.4]
+  fairing_mass: 600                 # [est] space head section shell, SHS-2
+  adapter_mass: 50                  # [est]
+  stages:
+    - name: Stage 1                 # 3 x RD-0233 + RD-0234, N2O4/UDMH [rockot]
+      propellant_mass: 74520        # [fit]
+      dry_mass: 5695                # [rockot]
+      isp_vac: 310                  # [rockot]
+      isp_sl: 285                   # [rockot]
+      burn_time: 123                # [UM f 7.1] thrust cutoff
+      coast: 3.1                    # [UM f 3.4] separation at 126.1 s
+    - name: Stage 2                 # RD-0235 + RD-0236 verniers [rockot]
+      propellant_mass: 11775        # [fit]
+      dry_mass: 1485                # [rockot]
+      isp_vac: 320                  # [rockot]
+      burn_time: 183                # [UM f 3.4] 126.1 -> 309.1 s
+    - name: MIS                     # instruments section, one burn at apogee
+      propellant_mass: 335          # [der] 477 m/s at Isp 290 s on 1750 kg, + 5 % reserve
+      dry_mass: 1000                # [est]
+      isp_vac: 290                  # [est]
+      burn_time: 193.7              # [der] 320 kg used in the UM's 185 s burn
+
+flight:
+  backend: orbital_ascent
+  latitude: 51.8                    # [est] Svobodny; the UM gives no coordinates
+  longitude: 128.4
+  program:
+    target_inclination: 90.0        # [UM f 3.4]
+    vertical_time: 6                # [est]
+    kick_angle: 20.51               # [fit]
+    kick_time: 10
+    upper_pitch: [[5.65, 8.94]]     # [fit] stage 2: deg above horizon, start -> end
+    insertion_burn: false           # stage 2 reaches the transfer orbit, MIS burns at apogee
+    transfer_apogee: 1000.0e+3      # [UM f 3.4]
+    centre_apogee_burn: true        # the last burn straddles apogee
+    fairing_heat_flux: 853          # [fit] jettison at 164 s [UM f 3.4]
+
+atmosphere:
+  backend: isa

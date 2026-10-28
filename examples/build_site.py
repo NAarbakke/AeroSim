@@ -3,7 +3,7 @@
     python examples/build_site.py            # -> docs/site/index.html (about 15 minutes)
     python examples/build_site.py --reuse    # reuse cached engines data (about 2 minutes)
 
-Pages: Rockot ascent (globe replay), booster landing, F-16 flight, hybrid sounding rocket
+Pages: Rocket ascent (Rockot, Strela, Dnepr, LM-2C and Start-1 on a globe), booster landing, F-16 flight, hybrid sounding rocket
 (local-frame 3D replays) and engines (liquid cycles, regen cooling, hybrid burn, ramjet /
 scramjet, pyCycle gas turbines). Every number on them is computed here from AeroSim models;
 published figures are the ones the tests check against.
@@ -43,20 +43,59 @@ def write(name: str, text: str):
 
 
 # ------------------------------------------------------------------ replays
-def rockot():
+# the other launchers on the ascent page: examples/slv_ascent.py key, selector name, heading
+LAUNCHERS = [
+    ("strela", "Strela", "Strela ascent from Svobodny",
+     "700 kg to 1000 km circular, 90°, instrument-section burn at apogee  ·  calibrated to the User Manual"),
+    ("dnepr", "Dnepr", "Dnepr ascent from Baikonur",
+     "3700 kg to 300 km circular, 50.5°  ·  steering optimised (the guide publishes no trajectory)"),
+    ("long_march_2c", "Long March 2C", "Long March 2C / CTS ascent from Taiyuan",
+     "630 km circular, 86.1°, CTS kick stage  ·  calibrated to the User's Manual"),
+    ("start1", "Start-1", "Start-1 ascent from Svobodny",
+     "308 kg to 481 km sun-synchronous  ·  calibrated to the User's Handbook"),
+]
+
+
+def ascent():
+    """Rocket ascent: Rockot (calibrated and first-principles) and the four other launchers,
+    one vehicle at a time on the globe, with each guide's waypoints on the charts."""
     import rockot_ascent as ra
     import rockot_first_principles as fp
+    import slv_ascent as sa
 
-    from aerosim.plots.replay import replay_html
+    from aerosim.plots.replay import _event_label, ascent_html
     _c, veh_cal, f = ra.load()
     _c, veh_fp, f_fp = fp.load()
     res = {"Calibrated to the guide": ra.fly(veh_cal, f), "First principles": fp.fly(veh_fp, f_fp)}
-    write("rockot.html", replay_html(res, (f["latitude"], f["longitude"]),
-                                     "Rockot / Breeze-KM ascent from Plesetsk",
-                                     "650 km circular, 86.6°  ·  AeroSim orbital_ascent",
-                                     nav=nav(site.PAGES, "rockot.html")))
+    vehicles = [{"key": "rockot", "name": "Rockot", "title": "Rockot / Breeze-KM ascent from Plesetsk",
+                 "subtitle": "650 km circular, 86.6°  ·  calibrated and first-principles models",
+                 "site": (f["latitude"], f["longitude"]), "results": res,
+                 "guide": [(_event_label(k), g["time"], g["altitude"], g["speed"])
+                           for k, g in ra.GUIDE.items() if isinstance(g, dict) and "time" in g]}]
+    for key, name, title, sub in LAUNCHERS:
+        _c, veh, fl = sa.load(key)
+        model = "Steering optimised" if sa.VEHICLES[key]["mode"] == "optimise" else "Calibrated to the guide"
+        r = sa.fly(veh, fl)
+        log(f"{name}: final orbit {r.final_orbit.perigee_alt / 1e3:.0f} x {r.final_orbit.apogee_alt / 1e3:.0f} km")
+        vehicles.append({"key": key.replace("_", "-"), "name": name, "title": title, "subtitle": sub,
+                         "site": (fl["latitude"], fl["longitude"]), "results": {model: r},
+                         "guide": [(lab, g["time"], g["altitude"], g["speed"]) for _e, lab, g in sa.GUIDES[key]]})
+    write("ascent.html", ascent_html(vehicles, nav=nav(site.PAGES, "ascent.html")))
+    rockot_data({"First principles": (res["First principles"], veh_fp),
+                 "Calibrated to the guide": (res["Calibrated to the guide"], veh_cal)}, f)
     rockot_closeup(res["First principles"], veh_fp)
-    return res["First principles"]
+    return res["First principles"], vehicles
+
+
+def rockot_data(models, f):
+    """Flight-data dashboard of both models (the same data as examples/rockot_report.py's PDF)."""
+    import rockot_report
+
+    from aerosim.plots.ascent_dashboard import ascent_dashboard_html
+    data = rockot_report.dataset(models, f)
+    write("rockot-data.html", ascent_dashboard_html(
+        data, nav=nav(site.PAGES, "rockot-data.html"), subtitle="From Plesetsk to a 650 km circular orbit at 86.6°",
+        report_href="../reports/rockot/Rockot_Ascent_Report.pdf", fairing_heat_flux=data["fairing_heat_flux"]))
 
 
 def rockot_closeup(res, veh):
@@ -460,7 +499,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--reuse", action="store_true", help="reuse cached engines data (no pyCycle runs)")
     args = ap.parse_args(argv)
-    first = rockot()
+    first, vehicles = ascent()
     land = landing()
     f16s = f16()
     tc, hy = hybrid()
@@ -469,10 +508,15 @@ def main(argv=None):
     engine_figures(args.reuse)
     orbit = first.orbits["final"]
     write("index.html", site.hub_html([
-        {"href": "rockot.html", "title": "Rockot ascent", "text": "Calibrated and first-principles models of the "
-         "Rockot / Breeze-KM reference mission, on a globe.", "stats": {
-             "final orbit, km": f"{orbit.perigee_alt / 1e3:.0f} × {orbit.apogee_alt / 1e3:.0f}",
-             "inclination": f"{orbit.inclination:.1f}°", "models": "2"}},
+        {"href": "ascent.html", "title": "Rocket ascent", "text": "Rockot, Strela, Dnepr, Long March 2C and "
+         "Start-1 on a globe, each flying its user's guide mission against the guide's own waypoints; pick the "
+         "vehicle from the bar.", "stats": {
+             "vehicles": f"{len(vehicles)}",
+             "models": f"{sum(len(v['results']) for v in vehicles)}",
+             "guide waypoints": f"{sum(len(v['guide']) for v in vehicles)}"}},
+        {"href": "rockot-data.html", "title": "Rockot data", "text": "Every channel of both Rockot flights as a "
+         "paper-style dashboard: trajectory, loads, propulsion, losses, orbits and events, with a LaTeX report.",
+         "stats": {"figures": "7", "tables": "3", "max-Q, kPa": f"{first.dynamic_pressure.max() / 1e3:.1f}"}},
         {"href": "rockot-closeup.html", "title": "Rockot close-up", "text": "Follow the rocket in 6-DOF up through "
          "the layers of the atmosphere: drag, max-Q, Mach, heating, stability, angle of attack in a jet "
          "stream and the steering autopilot.",

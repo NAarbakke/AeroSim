@@ -19,7 +19,7 @@ import numpy as np
 from aerosim.plots.style import THEMES
 from aerosim.plots.web import CHART_JS, CSS, data_tag, importmap_tag, nav, theme_tag, themed
 
-PAGES = [("Overview", "index.html"), ("Rockot ascent", "rockot.html"),
+PAGES = [("Overview", "index.html"), ("Rocket ascent", "ascent.html"), ("Rockot data", "rockot-data.html"),
          ("Rockot close-up", "rockot-closeup.html"),
          ("Booster landing", "landing.html"), ("F-16 flight", "f16.html"),
          ("Terrain flights", "terrain.html"),

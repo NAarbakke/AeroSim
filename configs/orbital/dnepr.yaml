@@ -1,0 +1,57 @@
+# Dnepr from Baikonur: Dnepr User's Guide (ISC Kosmotras, Issue 2, 2001). The guide has no
+# reference trajectory, so the steering is not fitted but optimised (as in
+# configs/orbital/rockot_first_principles.yaml) for its headline mission: 3700 kg to 300 km
+# circular at 50.5 deg [UG s 1, f 4.1-3]. The propellant left over is the model's margin.
+# Profile: docs/references/dnepr/profile/
+#
+# Thrust and propellant are the guide's; burn times follow from them and the Isp, which the
+# guide does not give. On this steering the model carries up to 5050 kg to 300 km, 37 % more
+# than the guide: the outside Isp values (or the reading of the guide's mass table) are
+# optimistic, and with no published trajectory there is nothing to calibrate them against.
+#
+# Sources per value:  [UG x] = User's Guide table/section,  [der] = derived from UG values,
+# [ext] = public engine data outside the guide (verify),  [est] = engineering estimate,
+# [opt] = set by examples/slv_ascent.py dnepr to maximise the propellant left.
+kind: launch_vehicle
+
+vehicle:
+  name: Dnepr
+  diameter: 3.0                     # [UG s 4.4.1]
+  payload_mass: 3700                # [UG s 1] 300 km
+  fairing_mass: 1200                # [est] of the 4374 kg stage 2 dry + fairing [der]
+  adapter_mass: 0                   # in the stage 3 dry mass
+  stages:
+    - name: Stage 1                 # RD-264 (4 x RD-263)
+      propellant_mass: 147900       # [UG t 4.1-1]
+      dry_mass: 13620               # [der] 208900 - 147900 - 47380
+      isp_vac: 318                  # [ext]
+      isp_sl: 293                   # [ext]
+      burn_time: 101.98             # [der] 4522.8 kN vac [UG t 4.1-1] at 318 s
+    - name: Stage 2                 # RD-0255
+      propellant_mass: 36740        # [UG t 4.1-1]
+      dry_mass: 3174                # [der] 4374 - fairing
+      isp_vac: 340                  # [ext]
+      burn_time: 161.17             # [der] 760.0 kN vac [UG t 4.1-1] at 340 s
+    - name: Stage 3                 # RD-869, full-thrust mode
+      propellant_mass: 1910         # [UG t 4.1-1]
+      dry_mass: 2356                # [der] 6266 - 1910 - 2000, with the space head module
+      isp_vac: 309                  # [ext]
+      burn_time: 310.65             # [der] 18.63 kN vac [UG t 4.1-1] at 309 s
+
+flight:
+  backend: orbital_ascent
+  latitude: 46.0                    # [UG s 5] Baikonur
+  longitude: 63.0
+  program:
+    target_inclination: 50.5        # [UG s 1]
+    vertical_time: 8                # [est] mortar launch
+    kick_angle: 30.0                # [opt] at its bound
+    kick_time: 10
+    upper_pitch: [[-1.72, -6.56]]   # [opt] stage 2
+    insertion_climb: [171.8, -200.0]   # [opt] stage 3 burn 1
+    transfer_apogee: 300.0e+3       # [UG f 4.1-3]
+    centre_apogee_burn: true        # the last burn straddles apogee
+    fairing_heat_flux: 1135         # [est]
+
+atmosphere:
+  backend: isa

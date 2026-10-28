@@ -21,6 +21,13 @@ Flight programme (``AscentProgram``), the usual open-loop shape for a launcher:
    (default: circularise at the transfer apogee); skip with ``final_perigee=None``
    and ``circularise=False``
 
+With ``insertion_burn=False`` the stage below the last one flies the vehicle onto the
+transfer orbit by itself and the last stage only makes the apogee burn (a kick stage:
+Strela's instrument section, Start-1's stage 4, the LM-2C CTS). A lower stage with
+``Stage.coast`` > 0 coasts that long after cutoff before it separates. ``centre_apogee_burn``
+starts burn 2 half its expected length before apogee, as long low-thrust kick burns are
+flown, instead of at apogee.
+
 The fairing is jettisoned when the free-molecular heat flux 0.5 rho v^3 falls
 below ``fairing_heat_flux`` (W/m^2), the criterion launch-vehicle guides quote.
 Steering is in the inertial plane of ``target_inclination``: the kick heads along the
@@ -62,6 +69,8 @@ class AscentProgram:
     transfer_apogee: float = 400e3          # m above RE
     final_perigee: float | None = None      # m; None -> circularise at transfer apogee
     circularise: bool = True
+    insertion_burn: bool = True             # False: last stage only burns at apogee
+    centre_apogee_burn: bool = False        # True: burn 2 starts half its length before apogee
     fairing_heat_flux: float = 1135.0       # W/m^2
     coast_after: float = 0.0                # s of coast recorded after the last burn
 
@@ -239,7 +248,8 @@ class OrbitalAscentSim:
             evs_t = np.arange(t0, t_end, dt_out)
             sol = solve_ivp(self._rhs, (t0, t_end), y0, args=(ctx["veh"], ctx["atm"], stage, steer),
                             rtol=self.rtol, atol=1e-6, max_step=self.max_step, events=evs or None,
-                            t_eval=np.append(evs_t[evs_t > t0], t_end), dense_output=False)
+                            t_eval=np.append(evs_t[(evs_t > t0) & (evs_t < t_end)], t_end),
+                            dense_output=False)
             if sol.status < 0:
                 raise RuntimeError(f"{phase}: integration failed at t={t0:.1f}: {sol.message}")
             if len(sol.t):
@@ -303,6 +313,10 @@ class OrbitalAscentSim:
             t, y, _ = self._segment(ctx, t, y, t + st.burn_time, st, steer, phase=st.name)
             events[f"{st.name}_burnout"] = t
             orbs[f"{st.name}_burnout"] = Orbit.from_state(y[:3], y[3:6])
+            if st.coast > 0:
+                t, y, _ = self._segment(ctx, t, y, t + st.coast, None, None,
+                                        phase=f"{st.name} coast")
+                events[f"{st.name}_separation"] = t
             y = y.copy()
             y[6] -= st.dry_mass
         # last stage
@@ -318,25 +332,37 @@ class OrbitalAscentSim:
 
         def accel(tt):
             return st.thrust_vac / (m0 - st.mass_flow * (tt - ts))
-        if P.insertion_mode == "pitch":
-            steer = self._steer_pitch(n, lambda tt: th0 + rate * (tt - ts), t + t_burn, accel)
-        else:
-            steer = self._steer_climb(n, ts, t_burn, accel)
-        t1, y, stopped = self._segment(
-            ctx, t, y, t + t_burn, st, steer,
-            stop=apogee_reached, phase=f"{st.name} burn 1")
-        prop_left -= (t1 - t) * st.mass_flow
-        events[f"{st.name}_burn1_start"], events[f"{st.name}_burn1_end"] = t, t1
-        warnings = [] if stopped else [
-            f"{st.name} ran out of propellant before the transfer apogee was reached"]
+        warnings = []
+        if P.insertion_burn:
+            if P.insertion_mode == "pitch":
+                steer = self._steer_pitch(n, lambda tt: th0 + rate * (tt - ts), t + t_burn, accel)
+            else:
+                steer = self._steer_climb(n, ts, t_burn, accel)
+            if apogee_reached(t, y) >= 0:            # lower stages already got there
+                t1, stopped = t, True
+            else:
+                t1, y, stopped = self._segment(
+                    ctx, t, y, t + t_burn, st, steer,
+                    stop=apogee_reached, phase=f"{st.name} burn 1")
+            prop_left -= (t1 - t) * st.mass_flow
+            events[f"{st.name}_burn1_start"], events[f"{st.name}_burn1_end"] = t, t1
+            if not stopped:
+                warnings.append(f"{st.name} ran out of propellant before the transfer apogee "
+                                f"was reached")
+            t = t1
         orbs["transfer"] = Orbit.from_state(y[:3], y[3:6])
-        t = t1
         if P.circularise and prop_left > 0:
-            def at_apogee(tt, yy, *_):
-                return -float(np.dot(yy[:3], yy[3:6]))          # radial velocity + -> -
-            t, y, _ = self._segment(ctx, t, y, t + orbs["transfer"].period, None,
-                                    None, stop=at_apogee, phase="coast", dt_out=10.0)
             target = P.final_perigee if P.final_perigee is not None else orbs["transfer"].apogee_alt
+            lead = (0.5 * self._apogee_burn_time(orbs["transfer"], target, y[6], st, prop_left)
+                    if P.centre_apogee_burn else 0.0)
+
+            def at_apogee(tt, yy, *_):
+                if lead > 0:                                    # time to apogee falls to lead
+                    return lead - _time_to_apogee(yy[:3], yy[3:6])
+                return -float(np.dot(yy[:3], yy[3:6]))          # radial velocity + -> -
+            if lead == 0 or at_apogee(t, y) < 0:     # not already inside the lead
+                t, y, _ = self._segment(ctx, t, y, t + orbs["transfer"].period, None,
+                                        None, stop=at_apogee, phase="coast", dt_out=10.0)
 
             def perigee_reached(tt, yy, *_):
                 return Orbit.from_state(yy[:3], yy[3:6]).perigee_alt - target
@@ -356,6 +382,18 @@ class OrbitalAscentSim:
                            r0, prop_left)
         res.meta["warnings"] = warnings
         return res
+
+    @staticmethod
+    def _apogee_burn_time(transfer: Orbit, target_perigee: float, mass: float, st: Stage,
+                          prop_left: float) -> float:
+        """Burn that raises perigee to ``target_perigee`` at the transfer apogee (rocket
+        equation on the impulsive delta-v), capped by the propellant left."""
+        ra, a = transfer.apogee_alt + orbits.RE, transfer.semi_major_axis
+        rp = target_perigee + orbits.RE
+        dv = (math.sqrt(orbits.MU * (2 / ra - 2 / (ra + rp)))
+              - math.sqrt(orbits.MU * max(2 / ra - 1 / a, 0.0)))
+        used = mass * (1 - math.exp(-max(dv, 0.0) / (st.isp_vac * G0)))
+        return min(used, prop_left) / st.mass_flow
 
     def _result(self, t, Y, ph, names, events, orbs, final, atm, r0, prop_left) -> AscentResult:
         t, idx = np.unique(t, return_index=True)
@@ -396,6 +434,19 @@ class OrbitalAscentSim:
             flight_path_angle=fpa, dynamic_pressure=q, mach=spd / a_snd, acceleration=acc,
             downrange=down, latitude=lat, longitude=lon, phase=ph, phases=names,
             orbits=orbs, final_orbit=final)
+
+
+def _time_to_apogee(r, v) -> float:
+    """Two-body time from the state (r, v) to the next apogee, s."""
+    o = Orbit.from_state(r, v)
+    a, e = o.semi_major_axis, o.eccentricity
+    if not math.isfinite(a) or e < 1e-6:
+        return 0.0
+    E = math.acos(min(max((1 - float(np.linalg.norm(r)) / a) / e, -1.0), 1.0))
+    if float(np.dot(r, v)) < 0:
+        E = 2 * math.pi - E
+    M = E - e * math.sin(E)
+    return ((math.pi - M) % (2 * math.pi)) / math.sqrt(orbits.MU / a**3)
 
 
 def _set_path(obj, path: list[str], value: float):

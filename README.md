@@ -128,6 +128,8 @@ aerosim/
 │                     site.py + web.py: results site (local-frame 3D replays, engines page);
 │                     engine_models.py + engines3d.py: 3D engine cutaways coloured by flow fields;
 │                     ascent_closeup.py: Rockot up close through the atmosphere's layers;
+│                     ascent_data.py + ascent_dashboard.py + ascent_report.py: one ascent's flight
+│                     data as a paper-style dashboard page and a LaTeX report (PGF figures);
 │                     terrain_site.py: low-level flights over a terrain mesh (glTF F-16 from
 │                     data/f16, CC BY 4.0, see its ATTRIBUTION.md)
 └── cli.py            aerosim run | backends | atm
@@ -137,11 +139,15 @@ configs/             example YAML mission configs (aerosim run <file>)
 ├── hybrid/           n2o_htpb_sounding (N2O/HTPB hybrid sounding rocket)
 ├── liquid/           cea_engine
 ├── orbital/          rockot (calibrated to the User's Guide) · rockot_first_principles
-│                     (CEA engines, drag from geometry, optimised steering)
+│                     (CEA engines, drag from geometry, optimised steering) · strela ·
+│                     long_march_2c · start1 (calibrated to their manuals) · dnepr (steering
+│                     optimised; its guide has no trajectory)
 └── aircraft/         turbojet (JSBSim F-16 airframe on an AeroSim turbojet deck)
 examples/             solid motor -> trajectory · air brakes · TVC design · Dymos ascent ·
                       rockot_ascent (calibrate + fly the Rockot reference mission) ·
                       rockot_first_principles (predict it, then check) · rockot_replay (3D) ·
+                      rockot_report (LaTeX report of both Rockot flights, docs/reports/rockot/) ·
+                      slv_ascent (calibrate + fly Strela, Start-1, LM-2C; optimise Dnepr) ·
                       build_site (all results as an offline website, docs/site/) ·
                       build_terrain_site (F-16 low level over Norway and Novaya Zemlya, docs/site/terrain*.html) ·
                       bake_f16_model (the F-16 glTF for those pages)
@@ -150,8 +156,11 @@ data/terrain/         height grids for the terrain flights (Kartverket, Copernic
 data/imagery/         ground images draped over them (Sentinel-2, N50 map, land cover; 31 MB, licences
                       in its README)
 tests/                pytest, one folder per layer (core, thermo, propulsion, ...)
-docs/                 architecture.md · licensing.md · references/rockot (User's Guide) ·
+docs/                 architecture.md · licensing.md · references/<vehicle> (user's guides, kept
+                      out of git; profile/ holds the specs, trajectories and payload curves
+                      extracted from them) ·
                       briefings/rockot (PDF + PPTX briefing, 3D replay page, generators) ·
+                      reports/rockot (LaTeX flight-data report) ·
                       site/ (results website, terrain flights included: open index.html)
 ```
 
@@ -202,6 +211,7 @@ built-in model.
 | Flight | 6-DOF orbital ascent (`aerosim.flight.rocket.ascent6dof`): the 3-DOF flight programme flown by a gain-scheduled TVC autopilot (attitude and capped-rate loops, actuator lag and limits) with Barrowman normal force, aerodynamic and jet damping, draining-tank CG and inertia, wind (parametric or any RocketPy `Environment`); autopilot gain and phase margins with python-control | working; with the normal force removed it reproduces the 3-DOF trajectory to 0.2°; Rockot in a 35 m/s jet stream: 4.5° AoA and 1.9° gimbal at max-Q, phase margin 38°, final orbit within 8 km of the 3-DOF; ~20 s per flight |
 | Plots | Ascent close-up (`aerosim.plots.ascent_closeup`): three.js Rockot model, sky / Earth scattering shader, atmospheric layers, drag, max-Q, heating, thrust gain and Δv losses | working; US76 thermosphere temperatures match the 1976 tables within 0.6 K |
 | Plots | Results site (`aerosim.plots.site`, `examples/build_site.py`): landing, F-16 and hybrid 3D replays, engines page | working |
+| Plots | Ascent flight data (`aerosim.plots.ascent_data`): a paper-style dashboard page (`ascent_dashboard`, the site's "Rockot data") and a two-column LaTeX report (`ascent_report`, `examples/rockot_report.py`; matplotlib PGF figures set in the document's Latin Modern, booktabs tables, text written from the data; needs lualatex + latexmk) | working |
 | Plots | 3D engine models (`aerosim.plots.engine_models`): liquid chambers (pyskyfire contour, isentropic gas fields, wall temperature), regressing solid grains, hybrid port and tank, ramjet / scramjet and gas-turbine cutaways | working |
 
 See `docs/architecture.md` for the design rules and how to add a backend.
