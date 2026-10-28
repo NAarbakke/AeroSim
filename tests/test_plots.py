@@ -69,7 +69,7 @@ def test_ascent_replay_page(tmp_path):
     assert m["color"] != models[1]["color"]
     assert "__" not in re.sub(r'id="data">.*?</script>', "", page, flags=re.DOTALL)  # all filled
 
-    from aerosim.plots.replay import ascent_html     # several vehicles behind a selector
+    from aerosim.plots.replay import ascent_html  # several vehicles behind a selector
     page = ascent_html([{"name": "One", "site": (45.0, 63.0), "results": {"A": res}},
                         {"name": "Two & co", "site": (50.0, 60.0), "results": {"A": res, "B": res},
                          "guide": [("Burnout", 120.0, 60e3, 3000.0), ("Apogee", 900.0, None, 7e3)]}])

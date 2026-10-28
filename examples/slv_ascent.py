@@ -23,8 +23,12 @@ from pathlib import Path
 
 import yaml
 
-from aerosim.flight.rocket.orbital_ascent import (AscentProgram, OrbitalAscentSim,
-                                                  optimize_program, solve_program)
+from aerosim.flight.rocket.orbital_ascent import (
+    AscentProgram,
+    OrbitalAscentSim,
+    optimize_program,
+    solve_program,
+)
 from aerosim.flight.vehicles import LaunchVehicle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,38 +44,38 @@ def _lm_fpa(fpa, range_km):
 # Earth-relative, flight-path angle deg above the local horizontal; None = not given)
 GUIDES = {
     "strela": [                                   # UM Fig. 3.4
-        ("max_q", "Max q", dict(time=51, altitude=None, speed=566, fpa=49, q=65.77e3)),
+        ("max_q", "Max q", {"time": 51, "altitude": None, "speed": 566, "fpa": 49, "q": 65.77e3}),
         ("Stage 1_separation", "Stage 1 separation",
-         dict(time=126.1, altitude=70e3, speed=3555, fpa=20)),
-        ("fairing_jettison", "Fairing jettison", dict(time=164.25, altitude=114e3, speed=3992, fpa=15)),
+         {"time": 126.1, "altitude": 70e3, "speed": 3555, "fpa": 20}),
+        ("fairing_jettison", "Fairing jettison", {"time": 164.25, "altitude": 114e3, "speed": 3992, "fpa": 15}),
         ("Stage 2_burnout", "Stage 2 / MIS separation",
-         dict(time=309.1, altitude=240e3, speed=7727, fpa=7)),
-        ("MIS_burn2_start", "MIS ignition at apogee", dict(time=1575, altitude=1000e3, speed=6894, fpa=0)),
-        ("MIS_burn2_end", "SC separation", dict(time=1760, altitude=1000e3, speed=7371, fpa=0)),
+         {"time": 309.1, "altitude": 240e3, "speed": 7727, "fpa": 7}),
+        ("MIS_burn2_start", "MIS ignition at apogee", {"time": 1575, "altitude": 1000e3, "speed": 6894, "fpa": 0}),
+        ("MIS_burn2_end", "SC separation", {"time": 1760, "altitude": 1000e3, "speed": 7371, "fpa": 0}),
     ],
     "start1": [                                   # UH Fig. 2-3
-        ("Stage 1_separation", "Stage 1 separation", dict(time=87, altitude=39.7e3, speed=1283, fpa=27.6)),
-        ("Stage 2_separation", "Stage 2 separation", dict(time=148, altitude=86.5e3, speed=3347, fpa=18.1)),
-        ("Stage 3_burnout", "Stage 3 separation", dict(time=211, altitude=167.9e3, speed=5535, fpa=19.2)),
-        ("fairing_jettison", "Fairing release", dict(time=295, altitude=303.7e3, speed=5306, fpa=15.0)),
-        ("Stage 4_burn2_start", "Stage 4 ignition", dict(time=488, altitude=477.8e3, speed=5012, fpa=4.7)),
-        ("Stage 4_burn2_end", "Stage 4 burnout", dict(time=538, altitude=478.7e3, speed=7704, fpa=0.0)),
+        ("Stage 1_separation", "Stage 1 separation", {"time": 87, "altitude": 39.7e3, "speed": 1283, "fpa": 27.6}),
+        ("Stage 2_separation", "Stage 2 separation", {"time": 148, "altitude": 86.5e3, "speed": 3347, "fpa": 18.1}),
+        ("Stage 3_burnout", "Stage 3 separation", {"time": 211, "altitude": 167.9e3, "speed": 5535, "fpa": 19.2}),
+        ("fairing_jettison", "Fairing release", {"time": 295, "altitude": 303.7e3, "speed": 5306, "fpa": 15.0}),
+        ("Stage 4_burn2_start", "Stage 4 ignition", {"time": 488, "altitude": 477.8e3, "speed": 5012, "fpa": 4.7}),
+        ("Stage 4_burn2_end", "Stage 4 burnout", {"time": 538, "altitude": 478.7e3, "speed": 7704, "fpa": 0.0}),
     ],
     "long_march_2c": [                            # UM Table 3-2
         ("Stage 1_burnout", "Stage 1 shutdown",
-         dict(time=120.27, altitude=47.052e3, speed=2035.9, fpa=_lm_fpa(22.765, 61.755))),
+         {"time": 120.27, "altitude": 47.052e3, "speed": 2035.9, "fpa": _lm_fpa(22.765, 61.755)}),
         ("Stage 1_separation", "Stage 1/2 separation",
-         dict(time=121.77, altitude=48.257e3, speed=2043.8, fpa=_lm_fpa(22.403, 64.549))),
+         {"time": 121.77, "altitude": 48.257e3, "speed": 2043.8, "fpa": _lm_fpa(22.403, 64.549)}),
         ("fairing_jettison", "Fairing jettison",
-         dict(time=231.67, altitude=117.618e3, speed=3698.2, fpa=_lm_fpa(4.263, 352.768))),
+         {"time": 231.67, "altitude": 117.618e3, "speed": 3698.2, "fpa": _lm_fpa(4.263, 352.768)}),
         ("Stage 2_burnout", "Stage 2 main engine shutdown",
-         dict(time=301.184, altitude=146.895e3, speed=6379.4, fpa=_lm_fpa(-2.540, 679.624))),
+         {"time": 301.184, "altitude": 146.895e3, "speed": 6379.4, "fpa": _lm_fpa(-2.540, 679.624)}),
         ("Stage 2 verniers_burnout", "Vernier shutdown",
-         dict(time=613.333, altitude=181.142e3, speed=7917.7, fpa=_lm_fpa(-25.629, 2825.723))),
+         {"time": 613.333, "altitude": 181.142e3, "speed": 7917.7, "fpa": _lm_fpa(-25.629, 2825.723)}),
         ("CTS_burn2_start", "CTS ignition at apogee",
-         dict(time=2888.347, altitude=637.804e3, speed=7402.7, fpa=None)),
+         {"time": 2888.347, "altitude": 637.804e3, "speed": 7402.7, "fpa": None}),
         ("CTS_burn2_end", "CTS velocity trim end",
-         dict(time=2928.347, altitude=639.455e3, speed=7512.4, fpa=None)),
+         {"time": 2928.347, "altitude": 639.455e3, "speed": 7512.4, "fpa": None}),
     ],
     "dnepr": [],
 }

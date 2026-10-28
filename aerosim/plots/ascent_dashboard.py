@@ -399,7 +399,7 @@ def ascent_dashboard_html(data: dict, *, nav: str = "", subtitle: str = "", repo
     ref = models[0]["summary"]
 
     def fig(n, subs, cap):
-        return (f'<figure><div class="subs">' + "".join(
+        return ('<figure><div class="subs">' + "".join(
             f'<div class="sub"><canvas id="{i}"{" class=" + cls if cls else ""}></canvas><p class="cap"><b>({chr(97 + k)})</b> {c}</p></div>'
             for k, (i, c, cls) in enumerate(subs)) + f'</div><figcaption><b>Figure {n}:</b> {cap}</figcaption></figure>')
 

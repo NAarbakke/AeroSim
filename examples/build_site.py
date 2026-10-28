@@ -506,7 +506,6 @@ def main(argv=None):
     data = engines_data(tc, args.reuse)
     write("engines.html", site.engines_html(data))
     engine_figures(args.reuse)
-    orbit = first.orbits["final"]
     write("index.html", site.hub_html([
         {"href": "ascent.html", "title": "Rocket ascent", "text": "Rockot, Strela, Dnepr, Long March 2C and "
          "Start-1 on a globe, each flying its user's guide mission against the guide's own waypoints; pick the "

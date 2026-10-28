@@ -323,6 +323,10 @@ def report_tex(data: dict, *, title: str, subtitle: str = "", author: str = "", 
                  rf"eccentricity {_n(final[0]['ecc'], 4)} at {_n(final[0]['inc'], 2)}$^\circ$ "
                  rf"(Table~\ref{{tab:orbits}}).") if final else "."
 
+    byline = tex(author) + (r" \textperiodcentered{} " if author else "")
+    abstract_tex = (r"{\small\begin{minipage}{0.84\textwidth}\textbf{Abstract.} " + abstract
+                    + r"\end{minipage}\par}\vspace{16pt}") if abstract else ""
+
     head = rf"""\documentclass[10pt,a4paper,twocolumn]{{article}}
 \usepackage[T1]{{fontenc}}
 \usepackage{{lmodern}}
@@ -343,10 +347,13 @@ def report_tex(data: dict, *, title: str, subtitle: str = "", author: str = "", 
 \twocolumn[{{\centering
 {{\Large\bfseries {tex(title)}\par}}\vspace{{9pt}}
 {{\large {tex(subtitle)}\par}}\vspace{{4pt}}
-{{\small {tex(author) + (r" \textperiodcentered{} " if author else "")}{date}\par}}\vspace{{12pt}}
-{(r"{\small\begin{minipage}{0.84\textwidth}\textbf{Abstract.} " + abstract + r"\end{minipage}\par}\vspace{16pt}") if abstract else ""}
+{{\small {byline}{date}\par}}\vspace{{12pt}}
+{abstract_tex}
 }}]
 """
+    events_tab = _grouped(models, "Event", [r"$t$", r"$h$", r"$v$", r"$\gamma$", r"$m$"], _event_rows(models),
+                          r"Event timeline: time $t$ (s), altitude $h$ (km), Earth-relative speed $v$ (km/s), "
+                          r"flight-path angle $\gamma$ (deg) and mass $m$ (t).", "tab:events")
     body = rf"""
 \section{{Introduction}}
 This report documents a simulated ascent from {tex(data.get('launch_site', 'the launch site'))}
@@ -416,9 +423,7 @@ falls back late in the Breeze-KM burn, where the flight-path angle turns negativ
 {_grouped(models, "After", [r"$h_p$", r"$h_a$", r"$i$", r"$e$"], _orbit_rows(models),
           r"Osculating orbit after each staging event: perigee and apogee altitude $h_p$, $h_a$ (km), inclination $i$ (deg) "
           r"and eccentricity $e$. A negative perigee is a suborbital arc.", "tab:orbits")}
-{_grouped(models, "Event", [r"$t$", r"$h$", r"$v$", r"$\gamma$", r"$m$"], _event_rows(models),
-          r"Event timeline: time $t$ (s), altitude $h$ (km), Earth-relative speed $v$ (km/s), flight-path angle "
-          r"$\gamma$ (deg) and mass $m$ (t).", "tab:events")}
+{events_tab}
 Tables~\ref{{tab:orbits}} and \ref{{tab:events}} follow the orbit as it is built up stage by stage, and
 Figure~\ref{{fig:ground}} the ground track over the whole flight.
 
@@ -451,7 +456,8 @@ def build_report(data: dict, out_dir, *, name: str = "Ascent_Report", compile: b
     if exe is None:
         raise AerosimError("latexmk not found: install TeX Live or MiKTeX, or call build_report(..., compile=False)")
     run = subprocess.run([exe, "-lualatex", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error",
-                          src.name], cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                          src.name], cwd=build, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         check=False)
     pdf = build / f"{name}.pdf"
     if run.returncode != 0 or not pdf.exists():
         tail = "\n".join(l for l in run.stdout.splitlines() if l.startswith(("!", "./")) or "Error" in l)[-2000:]
